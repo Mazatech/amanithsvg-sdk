@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">SVGPlayer</string>
+    <string name="fd_location">Location</string>
+    <string name="fd_cant_read_folder">folder can\'t be read!</string>
+    <string name="fd_select">Select</string>
+    <string name="fd_file_name">File name:</string>
+    <string name="fd_no_data">No Data</string>
+</resources>
