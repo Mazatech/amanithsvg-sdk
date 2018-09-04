@@ -1,5 +1,5 @@
 /****************************************************************************
-** Copyright (C) 2013-2016 Mazatech S.r.l. All rights reserved.
+** Copyright (C) 2013-2018 Mazatech S.r.l. All rights reserved.
 **
 ** This file is part of AmanithSVG software, an SVG rendering engine.
 **
@@ -92,4 +92,4 @@ typedef unsigned int   SVGTbitfield;
 } /* extern "C" */
 #endif
 
-#endif /* _SVGTPLATFORM_H */
+#endif /* SVGTPLATFORM_H */

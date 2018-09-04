@@ -1,5 +1,5 @@
 /****************************************************************************
-** Copyright (C) 2013-2016 Mazatech S.r.l. All rights reserved.
+** Copyright (C) 2013-2018 Mazatech S.r.l. All rights reserved.
 **
 ** This file is part of AmanithSVG software, an SVG rendering engine.
 **
@@ -714,4 +714,4 @@ SVGT_API_CALL const char* SVGT_API_ENTRY svgtGetString(SVGTStringID name) SVGT_A
 } /* extern "C" */
 #endif
 
-#endif /* _SVGT_H */
+#endif /* SVGT_H */
