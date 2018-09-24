@@ -92,7 +92,9 @@ static char* loadXml(const char* fileName) {
 
 SVGTHandle loadSvg(const char* fileName) {
 
-    if (fileName) {
+    SVGTHandle svgHandle = SVGT_INVALID_HANDLE;
+
+    if (fileName != NULL) {
         // allocate buffer and load xml file
         char* buffer = loadXml(fileName);
         if (buffer != NULL) {
@@ -100,10 +102,10 @@ SVGTHandle loadSvg(const char* fileName) {
             SVGTHandle svgHandle = svgtDocCreate(buffer);
             // free xml buffer
             free(buffer);
-            return svgHandle;
         }
     }
-    return SVGT_INVALID_HANDLE;
+
+    return svgHandle;
 }
 
 void boxFit(SVGTuint* srcWidth,
