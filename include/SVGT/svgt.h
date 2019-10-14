@@ -318,7 +318,7 @@ SVGT_API_CALL const void* SVGT_API_ENTRY svgtSurfacePixels(SVGTHandle surface) S
     access (i.e. svgtSurfacePixels) is not advisable nor comfortable.
     If the 'redBlueSwap' flag is set to SVGT_TRUE, the copy process will also swap red and blue channels for each pixel; this
     kind of swap could be useful when dealing with OpenGL/Direct3D texture uploads (RGBA or BGRA formats).
-    If the 'dilateEdgesFix' flag is set to SVGT_TRUE, the copy process will also perform a 1-pixel delate post-filter; this
+    If the 'dilateEdgesFix' flag is set to SVGT_TRUE, the copy process will also perform a 1-pixel dilate post-filter; this
     dilate filter could be useful when surface pixels will be uploaded to OpenGL/Direct3D bilinear-filtered textures.
 
     This function returns:
