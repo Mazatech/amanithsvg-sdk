@@ -1,5 +1,5 @@
 /****************************************************************************
-** Copyright (c) 2013-2019 Mazatech S.r.l.
+** Copyright (c) 2013-2023 Mazatech S.r.l.
 ** All rights reserved.
 ** 
 ** This file is part of AmanithSVG software, an SVG rendering library.
@@ -41,20 +41,29 @@
 
 @implementation ViewController {
 
-    View *_view;
+    ViewerView* myview;
 }
 
+// called after the controller's view is loaded into memory
 - (void)viewDidLoad {
 
     [super viewDidLoad];
 
     // set the view to use the default device
-    _view = (View *)self.view;
-    _view.device = MTLCreateSystemDefaultDevice();
-    NSAssert(_view.device, @"Metal is not supported on this device");
-    // initialize the view (i.e. create Metal pipeline states, textures and so on)    
-    [_view initView];
-    _view.delegate = _view;
+    myview = (ViewerView *)self.view;
+    myview.device = MTLCreateSystemDefaultDevice();
+    NSAssert(myview.device, @"Metal is not supported on this device");
+    // initialize the view (i.e. create Metal pipeline states, textures and so on)
+    [myview initView];
+    myview.delegate = myview;
+}
+
+// notifies the view controller that its view was added to a view hierarchy
+- (void)viewDidAppear:(BOOL)animated {
+
+    [super viewDidAppear:animated];
+    // open the file selection dialog
+    [myview fileChooseDialog];
 }
 
 @end

@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b56e75d3f0fc6c64bab5cda5cc0b7e8a, type: 3}
+  m_Name: SVGAssetsConfigUnity
+  m_EditorClassIdentifier: 
+  Config:
+    ScreenWidth: 1061
+    ScreenHeight: 710
+    ScreenDpi: 144
+    CurvesQuality: 75
+    Language: en
+    LogLevel: 7
+    LogCapacity: 32768
+    _resources:
+    - Id: acme
+      Type: 1
+      Hints: 0
+      Asset: {fileID: 4900000, guid: 98b1968001f53374381bdecf0f574acf, type: 3}

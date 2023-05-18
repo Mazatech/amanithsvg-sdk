@@ -1,5 +1,5 @@
 /****************************************************************************
-** Copyright (c) 2013-2019 Mazatech S.r.l.
+** Copyright (c) 2013-2023 Mazatech S.r.l.
 ** All rights reserved.
 ** 
 ** This file is part of AmanithSVG software, an SVG rendering library.
@@ -36,16 +36,15 @@
 ** 
 ****************************************************************************/
 #import <Cocoa/Cocoa.h>
-#if defined(USE_OPENGL)
-    #import <QuartzCore/CVDisplayLink.h>
-    #import <OpenGL/OpenGL.h>
-    #include <OpenGL/gl.h>
-#else
-    #import <Metal/Metal.h>
-    #import <MetalKit/MetalKit.h>
-    // header shared between C code here, which executes Metal API commands, and .metal files, which uses these types as inputs to the shaders.
-    #import "ShaderTypes.h"
+#import <Metal/Metal.h>
+#import <MetalKit/MetalKit.h>
+#import <os/log.h>
+#if (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_12_0)
+    // for the definition of UTTypeFolder and UTTypeSVG (macOS 12+)
+    #import <UniformTypeIdentifiers/UTCoreTypes.h>
 #endif
+// header shared between C code here, which executes Metal API commands, and .metal files, which uses these types as inputs to the shaders.
+#import "ShaderTypes.h"
 #include <stdio.h>
 #include "svg_viewer.h"
 
@@ -54,44 +53,6 @@
 // default window dimensions
 #define INITIAL_WINDOW_WIDTH 600
 #define INITIAL_WINDOW_HEIGHT 800
-
-// background pattern (dimensions and ARGB colors)
-#define BACKGROUND_PATTERN_WIDTH 32
-#define BACKGROUND_PATTERN_HEIGHT 32
-#define BACKGROUND_PATTERN_COL0 0xFF808080
-#define BACKGROUND_PATTERN_COL1 0xFFC0C0C0
-
-#if defined(USE_OPENGL)
-    #if !defined(GL_RED)
-        #define GL_RED 0x1903
-    #endif
-    #if !defined(GL_GREEN)
-        #define GL_GREEN 0x1904
-    #endif
-    #if !defined(GL_BLUE)
-        #define GL_BLUE 0x1905
-    #endif
-    #if !defined(GL_ALPHA)
-        #define GL_ALPHA 0x1906
-    #endif
-    // GL_EXT_bgra extension
-    #if !defined(GL_BGRA)
-        #define GL_BGRA 0x80E1
-    #endif
-    // GL_EXT_texture_swizzle extension
-    #if !defined(GL_TEXTURE_SWIZZLE_R)
-        #define GL_TEXTURE_SWIZZLE_R 0x8E42
-    #endif
-    #if !defined(GL_TEXTURE_SWIZZLE_G)
-        #define GL_TEXTURE_SWIZZLE_G 0x8E43
-    #endif
-    #if !defined(GL_TEXTURE_SWIZZLE_B)
-        #define GL_TEXTURE_SWIZZLE_B 0x8E44
-    #endif
-    #if !defined(GL_TEXTURE_SWIZZLE_A)
-        #define GL_TEXTURE_SWIZZLE_A 0x8E45
-    #endif
-#endif
 
 // The 10.12 SDK adds new symbols and immediately deprecates the old ones
 #if MAC_OS_X_VERSION_MAX_ALLOWED < 101200
@@ -104,29 +65,28 @@
 #endif
 
 // ---------------------------------------------------------------
-//                       Global variables
+//              External resources (fonts and images)
 // ---------------------------------------------------------------
-SVGTboolean done = SVGT_FALSE;
+#define SVG_RESOURCES_COUNT 5
+static SVGExternalResource resources[SVG_RESOURCES_COUNT] = {
+    // filename,                    type,                    buffer, size, hints
+    { "bebas_neue_regular.ttf",     SVGT_RESOURCE_TYPE_FONT, NULL,   0U,   SVGT_RESOURCE_HINT_DEFAULT_FANTASY_FONT },
+    { "dancing_script_regular.ttf", SVGT_RESOURCE_TYPE_FONT, NULL,   0U,   SVGT_RESOURCE_HINT_DEFAULT_CURSIVE_FONT },
+    { "noto_mono_regular.ttf",      SVGT_RESOURCE_TYPE_FONT, NULL,   0U,   SVGT_RESOURCE_HINT_DEFAULT_MONOSPACE_FONT |
+                                                                           SVGT_RESOURCE_HINT_DEFAULT_UI_MONOSPACE_FONT },
+    { "noto_sans_regular.ttf",      SVGT_RESOURCE_TYPE_FONT, NULL,   0U,   SVGT_RESOURCE_HINT_DEFAULT_SANS_SERIF_FONT |
+                                                                           SVGT_RESOURCE_HINT_DEFAULT_UI_SANS_SERIF_FONT |
+                                                                           SVGT_RESOURCE_HINT_DEFAULT_SYSTEM_UI_FONT |
+                                                                           SVGT_RESOURCE_HINT_DEFAULT_UI_ROUNDED_FONT },
+    { "noto_serif_regular.ttf",     SVGT_RESOURCE_TYPE_FONT, NULL,   0U,   SVGT_RESOURCE_HINT_DEFAULT_SERIF_FONT |
+                                                                           SVGT_RESOURCE_HINT_DEFAULT_UI_SERIF_FONT }
+};
 
 // ---------------------------------------------------------------
 //                        View (interface)
 // ---------------------------------------------------------------
-#if defined(USE_OPENGL)
-@interface ViewerView : NSOpenGLView <NSWindowDelegate> {
-    // a Core Video display link 
-    CVDisplayLinkRef displayLink;
-    // Texture capabilities
-    SVGTboolean bgraSupport;
-    SVGTboolean npotSupport;
-    SVGTboolean swizzleSupport;
-    GLint internalFormat;
-    GLenum externalFormat;
-    // OpenGL texture used to draw the pattern background
-    GLuint patternTexture;
-    // OpenGL texture used to draw the AmanithSVG surface
-    GLuint surfaceTexture;
-#else
-@interface ViewerView : MTKView <MTKViewDelegate, NSWindowDelegate> {
+@interface ViewerView : MTKView <MTKViewDelegate, NSWindowDelegate, NSApplicationDelegate> {
+
     id<MTLDevice> mtlDevice;
     id<MTLCommandQueue> mtlCommandQueue;
     id<MTLLibrary> mtlLibrary;
@@ -139,7 +99,12 @@ SVGTboolean done = SVGT_FALSE;
     id<MTLTexture> surfaceTexture;
     // The current size of the view, used as an input to the vertex shader.
     vector_uint2 viewportSize;
-#endif
+
+    // custom log object (Apple unified logging system)
+    os_log_t logger;
+    // AmanithSVG log buffer
+    char* logBuffer;
+
     // keep track if we are selecting/opening an SVG file
     SVGTboolean selectingFile;
     // force the view to redraw
@@ -216,7 +181,6 @@ SVGTboolean done = SVGT_FALSE;
     [alert setAlertStyle:NSAlertStyleInformational];
     // display the modal dialog
     [alert runModal];
-    [alert release];
 }
 
 - (void) aboutDialog :(id)sender {
@@ -244,364 +208,268 @@ SVGTboolean done = SVGT_FALSE;
     [self messageDialog :"AmanithSVG" :msg];
 }
 
-#if defined(USE_OPENGL)
+// ---------------------------------------------------------------
+//                    AmanithSVG initialization
+// ---------------------------------------------------------------
+- (void) amanithsvgResourceAdd :(SVGExternalResource*)resource {
 
-// swap R and B components (ARGB <--> ABGR and vice versa)
-- (SVGTuint) swapRedBlue :(SVGTuint)p {
+    NSString* resourcePath;
+    char fext[64] = { '\0' };
+    char fname[128] = { '\0' };
 
-    // swap R <--> B
-    SVGTuint ag = p & 0xFF00FF00;
-    SVGTuint rb = p & 0x00FF00FF;
-    SVGTuint r = rb >> 16;
-    SVGTuint b = rb & 0xFF;
-    return ag | (b << 16) | r;
-}
+    // extract filename without extension (e.g. myfont.ttf --> myfont)
+    extractFileName(fname, resource->fileName, SVGT_FALSE);
+    // extract file extension (e.g. myfont.ttf --> ttf)
+    extractFileExt(fext, resource->fileName);
+    // get resource file path
+    if ((resourcePath = [[NSBundle mainBundle] pathForResource:@(fname) ofType:@(fext)]) != NULL) {
 
-// return the power of two value greater (or equal) to a given value
-- (SVGTuint) pow2Get :(SVGTuint)value {
+        // load the resource file into memory
+        size_t bufferSize = 0U;
+        SVGTubyte* buffer = loadResourceFile(resourcePath.UTF8String, &bufferSize);
 
-    SVGTuint v = 1;
-
-    if (value >= ((SVGTuint)1 << 31)) {
-        return ((SVGTuint)1 << 31);
-    }
-    
-    while (v < value) {
-        v <<= 1;
-    }
-
-    return v;
-}
-
-- (void) projectionLoad :(SVGTfloat)left :(SVGTfloat)right :(SVGTfloat)bottom :(SVGTfloat)top {
-
-    const SVGTfloat prjMatrix[16] = {
-        2.0f / (right - left),            0.0f,                             0.0f, 0.0f,
-        0.0f,                             2.0f / (top - bottom),            0.0f, 0.0f,
-        0.0f,                             0.0f,                             1.0f, 0.0f,
-        -(right + left) / (right - left), -(top + bottom) / (top - bottom), 0.0f, 1.0f
-    };
-    glMatrixMode(GL_PROJECTION);
-    glLoadMatrixf(prjMatrix);
-}
-
-- (void) texturedRectangleDraw :(SVGTfloat)x :(SVGTfloat)y :(SVGTfloat)width :(SVGTfloat)height :(SVGTfloat)u :(SVGTfloat)v {
-
-    // 4 vertices
-    const GLfloat xy[] = {
-        x, y,
-        x + width, y,
-        x, y + height,
-        x + width, y + height
-    };
-    const GLfloat uv[] = {
-        0.0f, 0.0f,
-        u, 0.0f,
-        0.0f, v,
-        u, v
-    };
-
-    glVertexPointer(2, GL_FLOAT, 0, xy);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glTexCoordPointer(2, GL_FLOAT, 0, uv);
-    glEnableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-}
-
-- (void) rectangleDraw :(SVGTfloat)x :(SVGTfloat)y :(SVGTfloat)width :(SVGTfloat)height {
-
-    // 4 vertices
-    const GLfloat xy[] = {
-        x, y,
-        x + width, y,
-        x, y + height,
-        x + width, y + height
-    };
-
-    glVertexPointer(2, GL_FLOAT, 0, xy);
-    glEnableClientState(GL_VERTEX_ARRAY);
-    glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-}
-
-// Core Video display link
-- (CVReturn)getFrameForTime :(const CVTimeStamp *)outputTime {
-
-    // deltaTime is unused in this application, but here's how to calculate it using display link info
-    // double deltaTime = 1.0 / (outputTime->rateScalar * (double)outputTime->videoTimeScale / (double)outputTime->videoRefreshPeriod);
-    (void)outputTime;
-
-    // there is no autorelease pool when this method is called because it will be called from a background thread
-    // it's important to create one or app can leak objects
-    @autoreleasepool {
-        // update the scene, if we are not resizing the window and a redraw is needed
-        if (forceRedraw && (!resizing)) {
-            forceRedraw = SVGT_FALSE;
-            [self drawRect];
+        if ((buffer != NULL) && (bufferSize > 0U)) {
+            // fill the result structure
+            resource->buffer = buffer;
+            resource->bufferSize = bufferSize;
+            // provide AmanithSVG with the resource
+            (void)svgtResourceSet(resource->fileName, buffer, (SVGTuint)bufferSize, resource->type, resource->hints);
         }
     }
-
-    return kCVReturnSuccess;
 }
 
-static CVReturn displayLinkCallback(CVDisplayLinkRef displayLink,
-                                    const CVTimeStamp* now,
-                                    const CVTimeStamp* outputTime,
-                                    CVOptionFlags flagsIn,
-                                    CVOptionFlags* flagsOut,
-                                    void* displayLinkContext) {
+// make external resources (fonts/images) available to AmanithSVG
+- (void) amanithsvgResourcesLoad {
 
-    (void)displayLink;
-    (void)now;
-    (void)outputTime;
-    (void)flagsIn;
-    (void)flagsOut;
-    
-    CVReturn result = [(__bridge ViewerView*)displayLinkContext getFrameForTime:outputTime];
-    return result;
-}
+    SVGTuint i;
 
-// implementation of NSOpenGLView methods
-- (id) initWithFrame :(NSRect)frameRect {
-
-    NSOpenGLPixelFormatAttribute attributes [] = {
-        NSOpenGLPFAAccelerated,
-        NSOpenGLPFANoRecovery,
-        NSOpenGLPFADoubleBuffer,
-        NSOpenGLPFAOpenGLProfile, NSOpenGLProfileVersionLegacy,
-        NSOpenGLPFAColorSize, 32,
-        (NSOpenGLPixelFormatAttribute)0
-    };
-    NSOpenGLPixelFormat* format = [[NSOpenGLPixelFormat alloc] initWithAttributes:attributes];
-
-    if (!format) {
-        NSLog(@"initWithFrame: unable to create pixel format");
-        exit(EXIT_FAILURE);
+    // load external resources and provide them to AmanithSVG
+    for (i = 0U; i < SVG_RESOURCES_COUNT; ++i) {
+        [self amanithsvgResourceAdd:&resources[i]];
     }
-    
-    self = [super initWithFrame: frameRect pixelFormat: format];
-    [format release];
-
-    // initialize private members
-    selectingFile = SVGT_FALSE;
-    forceRedraw = SVGT_TRUE;
-    resizing = SVGT_TRUE;
-    oldMouseX = 0.0f;
-    oldMouseY = 0.0f;
-    svgSurface = SVGT_INVALID_HANDLE;
-    svgDoc = SVGT_INVALID_HANDLE;
-    surfaceTexture = 0;
-    surfaceTranslation[0] = 0.0f;
-    surfaceTranslation[1] = 0.0f;
-    patternTexture = 0;
-    return self;
 }
 
-- (void) prepareOpenGL {
+// release in-memory external resources (fonts/images) provided to AmanithSVG at initialization time
+- (void) amanithsvgResourcesRelease {
 
-    // take care of Retina display
-    [self setWantsBestResolutionOpenGLSurface:YES];
-    [super prepareOpenGL];
+    SVGTuint i;
 
-    // the reshape function may have changed the thread to which our OpenGL
-    // context is attached before prepareOpenGL and initGL are called. So call
-    // makeCurrentContext to ensure that our OpenGL context current to this 
-    // thread (i.e. makeCurrentContext directs all OpenGL calls on this thread
-    // to [self openGLContext])
-    [[self openGLContext] makeCurrentContext];
-
-    // do not synchronize buffer swaps with vertical refresh rate
-    GLint swapInt = 0;
-    [[self openGLContext] setValues:&swapInt forParameter:NSOpenGLCPSwapInterval];
-
-    // get texture capabilities
-    NSString* extensionString = [NSString stringWithUTF8String:(char *)glGetString(GL_EXTENSIONS)];
-    NSArray* extensions = [extensionString componentsSeparatedByCharactersInSet:[NSCharacterSet whitespaceCharacterSet]];
-    if ([extensions containsObject: @"GL_APPLE_texture_format_BGRA8888"] || [extensions containsObject: @"GL_EXT_bgra"]) {
-        bgraSupport = SVGT_TRUE;
-        internalFormat = GL_RGBA;
-        externalFormat = GL_BGRA;
+    for (i = 0U; i < SVG_RESOURCES_COUNT; ++i) {
+        // release allocated memory
+        if (resources[i].buffer != NULL) {
+            free(resources[i].buffer);
+        }
     }
-    else
-    if ([extensions containsObject: @"GL_IMG_texture_format_BGRA8888"] || [extensions containsObject: @"GL_EXT_texture_format_BGRA8888"]) {
-        bgraSupport = SVGT_TRUE;
-        internalFormat = GL_BGRA;
-        externalFormat = GL_BGRA;
+}
+
+// initialize AmanithSVG and load external resources
+- (SVGTboolean) amanithsvgInit {
+
+    SVGTErrorCode err;
+    // get screen dimensions
+    SimpleRect screenRect = [self screenDimensionsGet];
+
+    // initialize AmanithSVG
+    if ((err = svgtInit(screenRect.width, screenRect.height, [self screenDpiGet])) == SVGT_NO_ERROR) {
+        // set curves quality (used by AmanithSVG geometric kernel to approximate curves with straight
+        // line segments (flattening); valid range is [1; 100], where 100 represents the best quality
+        (void)svgtConfigSet(SVGT_CONFIG_CURVES_QUALITY, AMANITHSVG_CURVES_QUALITY);
+        // specify the system/user-agent language; this setting will affect the conditional rendering
+        // of <switch> elements and elements with 'systemLanguage' attribute specified
+        (void)svgtLanguageSet(AMANITHSVG_USER_AGENT_LANGUAGE);
+        // make external resources available to AmanithSVG; NB: all resources must be specified in
+        // advance before to call rendering-related functions, which are by definition tied to a thread
+        [self amanithsvgResourcesLoad];
+    }
+
+    return (err == SVGT_NO_ERROR) ? SVGT_TRUE : SVGT_FALSE;
+}
+
+// terminate AmanithSVG library
+- (void) amanithsvgRelease {
+
+    if (svgDoc != SVGT_INVALID_HANDLE) {
+        // destroy the SVG document
+        svgtDocDestroy(svgDoc);
+    }
+    if (svgSurface != SVGT_INVALID_HANDLE) {
+        // destroy the drawing surface
+        svgtSurfaceDestroy(svgSurface);
+    }
+    // terminate AmanithSVG library, freeing its all allocated resources
+    // NB: after this call, all AmanithSVG rendering functions will have no effect
+    svgtDone();
+
+    // release in-memory external resources (fonts/images)
+    // provided to AmanithSVG at initialization time
+    [self amanithsvgResourcesRelease];
+}
+
+// ---------------------------------------------------------------
+//                        AmanithSVG log
+// ---------------------------------------------------------------
+
+// append the message to the AmanithSVG log buffer
+- (void) logPrint :(const char*)message :(SVGTLogLevel)level {
+
+    (void)svgtLogPrint(message, level);
+}
+
+// append an informational message to the AmanithSVG log buffer
+- (void) logInfo :(const char*)message {
+
+    // push the message to AmanithSVG log buffer
+    [self logPrint :message :SVGT_LOG_LEVEL_INFO];
+}
+
+- (void) logInit :(const char*)fullFileName {
+
+    NSString* bundleIdentifier = [[NSBundle mainBundle] bundleIdentifier];
+
+    // NB: a value is always returned
+    logger = os_log_create([bundleIdentifier UTF8String], "AmanithSVG");
+    if ((logBuffer = calloc(AMANITHSVG_LOG_BUFFER_SIZE, sizeof(char))) != NULL) {
+        // enable all log levels
+        if (svgtLogBufferSet(logBuffer, AMANITHSVG_LOG_BUFFER_SIZE, SVGT_LOG_LEVEL_ALL) == SVGT_NO_ERROR) {
+            char fname[512] = { '\0' };
+            char msg[1024] = { '\0' };
+            // extract the filename only from the full path
+            extractFileName(fname, fullFileName, SVGT_TRUE);
+            // keep track of the SVG filename within AmanithSVG log buffer
+            sprintf(msg, "Loading and parsing SVG file %s", fname);
+            [self logInfo :msg];
+        }
     }
     else {
-        bgraSupport = SVGT_FALSE;
-        internalFormat = GL_RGBA;
-        externalFormat = GL_RGBA;
+        NSLog(@"Error allocating AmanithSVG log buffer");
     }
+}
 
-    npotSupport = ([extensions containsObject: @"GL_OES_texture_npot"] ||
-                   [extensions containsObject: @"GL_APPLE_texture_2D_limited_npot"] ||
-                   [extensions containsObject: @"GL_ARB_texture_non_power_of_two"]) ? SVGT_TRUE : SVGT_FALSE;
-    swizzleSupport = ([extensions containsObject: @"GL_EXT_texture_swizzle"] ||
-                      [extensions containsObject: @"GL_ARB_texture_swizzle"]) ? SVGT_TRUE : SVGT_FALSE;
+- (void) logDestroy {
 
-    // get OpenGL version
-    const char* glVersionStr = (const char *)glGetString(GL_VERSION);
-    // parse string
-    if (glVersionStr != NULL) {
+    // make sure AmanithSVG no longer uses a log buffer (i.e. disable logging)
+    (void)svgtLogBufferSet(NULL, 0U, 0U);
+    // release allocated memory
+    if (logBuffer != NULL) {
+        free(logBuffer);
+        logBuffer = NULL;
+    }
+    // release logger object
+    logger = nil;
+}
 
-        int minor = 0;
-        int major = 0;
-        int revision = 0;
-        const char* ptr = glVersionStr;
+// output AmanithSVG log content, using the Apple unified logging system
+- (void) logOutput {
 
-        // find first digit
-        while ((*ptr != '\0') && (!((*ptr >= '0') && (*ptr <= '9')))) {
-            ptr++;
+    if (logBuffer != NULL) {
+
+        SVGTuint info[4] = { 0U, 0U, 0U, 0U };
+        SVGTErrorCode err = svgtLogBufferInfo(info);
+
+        // info[2] = current length, in characters (i.e. the total number of
+        // characters written, included the trailing '\0')
+        if ((err == SVGT_NO_ERROR) && (info[2] > 1U)) {
+            os_log_debug(logger, "%s", logBuffer);
         }
-        // parse major number
-        for (; (*ptr != '\0') && ((*ptr >= '0') && (*ptr <= '9')); ptr++) {
-            major = (10 * major) + (*ptr - '0');
-        }
-        if (*ptr == '.') {
-            ptr++;
-            // parse minor number
-            for (; (*ptr != '\0') && ((*ptr >= '0') && (*ptr <= '9')); ptr++) {
-                minor = (10 * minor) + (*ptr - '0');
+    }
+}
+
+// ---------------------------------------------------------------
+//                         File picker
+// ---------------------------------------------------------------
+
+// handler for "Open" menu option
+- (void) fileChooseDialog :(id)sender {
+
+    (void)sender;
+
+    if (!selectingFile) {
+        // create an open document panel
+        NSOpenPanel* panel = [NSOpenPanel openPanel];
+        // open only .svg files
+    #if (MAC_OS_X_VERSION_MIN_REQUIRED >= MAC_OS_X_VERSION_12_0)
+        // macOS 12+
+        NSArray<UTType*>* fileTypes = @[UTTypeFolder, UTTypeSVG];
+        [panel setAllowedContentTypes:fileTypes];
+    #else
+        NSArray* fileTypes = [[NSArray alloc] initWithObjects:@"svg", @"SVG", nil];
+        [panel setAllowedFileTypes:fileTypes];
+    #endif
+        selectingFile = SVGT_TRUE;
+
+        // display the panel
+        [panel beginWithCompletionHandler:^(NSInteger result) {
+            // lets load the SVG file, if OK button has been clicked
+            if (result == NSModalResponseOK) {
+                // grab a reference to what has been selected
+                NSURL* fileUrl = [[panel URLs]objectAtIndex:0];
+                // write our file name to a label
+                NSString* filePath = [fileUrl path];
+                // load and draw the choosen SVG file
+                [self pickedDocumentLoad:[filePath fileSystemRepresentation]];
             }
-            if (*ptr == '.') {
-                ptr++;
-                // parse revision number
-                for (; (*ptr != '\0') && ((*ptr >= '0') && (*ptr <= '9')); ptr++) {
-                    revision = (10 * revision) + (*ptr - '0');
-                }
-            }
-        }
-        // on OpenGL 2.0+ npot textures are supported as a core functionality
-        if (major >= 2) {
-            npotSupport = SVGT_TRUE;
-        }
-        // on OpenGL 3.3+ texture swizzling is supported as a core functionality
-        if ((major >= 3) && (minor >= 3)) {
-            swizzleSupport = SVGT_TRUE;
-        }
-    }
-
-    // set basic OpenGL states
-    glDisable(GL_LIGHTING);
-    glShadeModel(GL_FLAT);
-    glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-    glDisable(GL_CULL_FACE);
-    glDisable(GL_ALPHA_TEST);
-    glDisable(GL_SCISSOR_TEST);
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_STENCIL_TEST);
-    glDisable(GL_BLEND);
-    glDepthMask(GL_FALSE);
-    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    // generate pattern texture, used to draw the background
-    [self genPatternTexture];
-
-    // create a display link capable of being used with all active displays
-    CVDisplayLinkCreateWithActiveCGDisplays(&displayLink);
-    
-    // set the renderer output callback function
-    CVDisplayLinkSetOutputCallback(displayLink, &displayLinkCallback, (__bridge void*)self);
-    
-    // set the display link for the current renderer
-    CGLContextObj cglContext = [[self openGLContext] CGLContextObj];
-    CGLPixelFormatObj cglPixelFormat = [[self pixelFormat] CGLPixelFormatObj];
-    CVDisplayLinkSetCurrentCGDisplayFromOpenGLContext(displayLink, cglContext, cglPixelFormat);
-    
-    // activate the display link
-    CVDisplayLinkStart(displayLink);
-}
-
-- (void) drawRect {
-
-    if ([self lockFocusIfCanDraw]) {
-    
-        [[self openGLContext] makeCurrentContext];
-
-        // we draw on a secondary thread through the display link when resizing the view, -reshape is called automatically on the main thread
-        // add a mutex around to avoid the threads accessing the context simultaneously when resizing
-        CGLLockContext([[self openGLContext] CGLContextObj]);
-
-        // draw scene
-        [self sceneDraw];
-
-        // copy a double-buffered context’s back buffer to its front buffer
-        CGLFlushDrawable([[self openGLContext] CGLContextObj]);
-
-        // unlock the context
-        CGLUnlockContext([[self openGLContext] CGLContextObj]);
-        [self unlockFocus];
+            // now we can select another file, if we desire
+            selectingFile = SVGT_FALSE;
+        }];
     }
 }
 
-// this method is called whenever the window/control is reshaped, it is also called when the control is first opened
-- (void) reshape {
+// resize the window in order to match the given dimensions
+- (void) windowResize :(const SimpleRect*)desiredRect {
 
-    [super reshape];
+    NSRect r;
+    // get current window dimensions
+    NSWindow* window = [self window];
+    // get screen dimensions
+    SimpleRect screenRect = [self screenDimensionsGet];
+    // clamp window dimensions against screen bounds
+    SVGTfloat w = MIN(desiredRect->width, screenRect.width);
+    SVGTfloat h = MIN(desiredRect->height, screenRect.height);
+    NSRect bounds = [self convertRectToBacking:[self bounds]];
 
-    if ([self lockFocusIfCanDraw]) {
-
-        [[self openGLContext] makeCurrentContext];
-
-        // we draw on a secondary thread through the display link, however, when resizing the view, -drawRect is called on the main thread
-        // add a mutex around to avoid the threads accessing the context simultaneously when resizing
-        CGLLockContext([[self openGLContext] CGLContextObj]);
-
-        // update the receiver's drawable object
-        [[self openGLContext] update];
-
-        // get view dimensions in pixels, taking care of Retina display
-        // see https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/OpenGL-MacProgGuide/EnablingOpenGLforHighResolution/EnablingOpenGLforHighResolution.html
-        NSRect backingBounds = [self convertRectToBacking:[self bounds]];
-        SVGTuint backingPixelWidth = (SVGTuint)backingBounds.size.width;
-        SVGTuint backingPixelHeight = (SVGTuint)backingBounds.size.height;
-
-        // resize AmanithSVG surface (in order to match the new window dimensions), then draw the loaded SVG document
-        [self sceneResize :backingPixelWidth :backingPixelHeight];
-        
-        // unlock the context
-        CGLUnlockContext([[self openGLContext] CGLContextObj]);
-        [self unlockFocus];
+    // move / resize the window
+    r.origin.x = 0;
+    r.origin.y = 0;
+    r.size.width = w;
+    r.size.height = h;
+    // take care of Retina display
+    r = [self convertRectFromBacking :r];
+    // we want to be sure that a "resize" event will be fired (see drawableSizeWillChange)
+    // NB: the setContentSize won't emit a reshape event if new dimensions are equal to the current ones
+    [window setContentSize:r.size];
+    [window center];
+    if (((SVGTuint)bounds.size.width == desiredRect->width) && ((SVGTuint)bounds.size.height == desiredRect->height)) {
+        [self sceneResize :desiredRect->width :desiredRect->height];
     }
 }
 
-#else
+// load and draw the choosen SVG file
+- (void) pickedDocumentLoad :(const char*)fileName {
 
-- (void) texturedRectangleDraw :(id<MTLRenderCommandEncoder>)commandEncoder :(SVGTfloat)x :(SVGTfloat)y :(SVGTfloat)width :(SVGTfloat)height :(SVGTfloat)u :(SVGTfloat)v {
+    // initialize AmanithSVG log (in order to keep track of possible errors
+    // and warnings arising from the parsing/rendering of selected file)
+    [self logInit:fileName];
 
-    // triangle strip
-    const TexturedVertex rectVertices[4] = {
-        // pixel positions           texture coordinates
-        { { x, y },                  { 0.0f, 0.0f } },
-        { { x + width, y },          { u, 0.0f } },
-        { { x, y + height },         { 0.0f, v } },
-        { { x + width, y + height }, { u, v } }
-    };
-    [commandEncoder setVertexBytes:rectVertices length:sizeof(rectVertices) atIndex:0];
-    [commandEncoder setVertexBytes:&viewportSize length:sizeof(viewportSize) atIndex:1];
-    [commandEncoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+    // destroy a previously loaded document, if any
+    if (svgDoc != SVGT_INVALID_HANDLE) {
+        svgtDocDestroy(svgDoc);
+    }
+    // load a new SVG file
+    if ((svgDoc = loadSvgFile(fileName)) != SVGT_INVALID_HANDLE) {
+        // get screen dimensions
+        SimpleRect screenRect = [self screenDimensionsGet];
+        // calculate AmanithSVG surface dimensions
+        SimpleRect desiredRect = surfaceDimensionsCalc(svgDoc, screenRect.width, screenRect.height);
+        // resize the window in order to match the desired surface dimensions
+        // NB: this call will trigger the following chain of events:
+        // mtkView:drawableSizeWillChange --> self:sceneResize
+        [self windowResize:&desiredRect];
+    }
 }
 
-- (void) rectangleDraw :(id<MTLRenderCommandEncoder>)commandEncoder :(SVGTfloat)x :(SVGTfloat)y :(SVGTfloat)width :(SVGTfloat)height {
-
-    // triangle strip
-    const GeometricVertex rectVertices[4] = {
-        // pixel positions
-        { { x, y } },
-        { { x + width, y } },
-        { { x, y + height } },
-        { { x + width, y + height } }
-    };
-    [commandEncoder setVertexBytes:rectVertices length:sizeof(rectVertices) atIndex:0];
-    [commandEncoder setVertexBytes:&viewportSize length:sizeof(viewportSize) atIndex:1];
-    [commandEncoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
-}
+// ---------------------------------------------------------------
+//                          MTKView
+// ---------------------------------------------------------------
 
 // implementation of MTKView and MTKViewDelegate methods
 - (id) initWithFrame :(CGRect)frameRect device:(id<MTLDevice>)device {
@@ -695,7 +563,8 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef displayLink,
     return self;
 }
 
-// called whenever view changes orientation or layout is changed; NB: this method is NOT called when the view/window is first opened
+// called whenever view changes orientation or layout is changed
+// NB: this method is NOT called when the view/window is first opened
 - (void) mtkView:(nonnull MTKView *)view drawableSizeWillChange:(CGSize)size {
 
     (void)view;
@@ -718,39 +587,11 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef displayLink,
     }
 }
 
-#endif
-
-- (void) dealloc {
-
-#if defined(USE_OPENGL)
-    // stop the display link BEFORE releasing anything in the view
-    // otherwise the display link thread may call into the view and
-    // crash when it encounters something that has been release
-    CVDisplayLinkStop(displayLink);
-    // release the display link
-    CVDisplayLinkRelease(displayLink);
-    // destroy used textures
-    [self deleteTextures];
-#else
-    // destroy used textures
-    [self deleteTextures];
-    // destroy Metal command queue
-    [mtlCommandQueue release];
-    mtlCommandQueue = nil;
-#endif
-
-    // destroy SVG resources allocated by the viewer
-    [self viewerDestroy];
-    [super dealloc];
-}
-
-// textures setup
+// ---------------------------------------------------------------
+//                         Metal textures
+// ---------------------------------------------------------------
 - (void) genPatternTexture {
 
-#if defined(USE_OPENGL)
-    SVGTuint col0 = bgraSupport ? BACKGROUND_PATTERN_COL0 : [self swapRedBlue :BACKGROUND_PATTERN_COL0];
-    SVGTuint col1 = bgraSupport ? BACKGROUND_PATTERN_COL1 : [self swapRedBlue :BACKGROUND_PATTERN_COL1];
-#else
     SVGTuint col0 = BACKGROUND_PATTERN_COL0;
     SVGTuint col1 = BACKGROUND_PATTERN_COL1;
     MTLRegion region = {
@@ -758,7 +599,6 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef displayLink,
         { BACKGROUND_PATTERN_WIDTH, BACKGROUND_PATTERN_HEIGHT, 1 }  // MTLSize
     };
     MTLTextureDescriptor* textureDescriptor = [[MTLTextureDescriptor alloc] init];
-#endif
     // allocate pixels
     SVGTuint* pixels = malloc(BACKGROUND_PATTERN_WIDTH * BACKGROUND_PATTERN_HEIGHT * 4);
 
@@ -776,16 +616,6 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef displayLink,
             }
         }
 
-    #if defined(USE_OPENGL)
-        glGenTextures(1, &patternTexture);
-        glEnable(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, patternTexture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, BACKGROUND_PATTERN_WIDTH, BACKGROUND_PATTERN_HEIGHT, 0, externalFormat, GL_UNSIGNED_BYTE, pixels);
-    #else
         // indicate that each pixel has a blue, green, red, and alpha channel, where each channel is
         // an 8-bit unsigned normalized value (i.e. 0 maps to 0.0 and 255 maps to 1.0)
         textureDescriptor.pixelFormat = MTLPixelFormatBGRA8Unorm;
@@ -796,7 +626,7 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef displayLink,
         patternTexture = [mtlDevice newTextureWithDescriptor:textureDescriptor];
         // upload pixels
         [patternTexture replaceRegion:region mipmapLevel:0 withBytes:pixels bytesPerRow:BACKGROUND_PATTERN_WIDTH*4];
-    #endif
+
         free(pixels);
     }
 }
@@ -807,69 +637,6 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef displayLink,
     SVGTint surfaceWidth = svgtSurfaceWidth(svgSurface);
     SVGTint surfaceHeight = svgtSurfaceHeight(svgSurface);
     const void* surfacePixels = svgtSurfacePixels(svgSurface);
-
-#if defined(USE_OPENGL)
-    glGenTextures(1, &surfaceTexture);
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, surfaceTexture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
-    if (bgraSupport) {
-        if (npotSupport) {
-            // allocate texture memory and upload pixels
-            glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, surfaceWidth, surfaceHeight, 0, externalFormat, GL_UNSIGNED_BYTE, surfacePixels);
-        }
-        else {
-            // allocate texture memory
-            glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, [self pow2Get :surfaceWidth], [self pow2Get :surfaceHeight], 0, externalFormat, GL_UNSIGNED_BYTE, NULL);
-            // upload pixels
-            glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, surfaceWidth, surfaceHeight, externalFormat, GL_UNSIGNED_BYTE, surfacePixels);
-        }
-    }
-    else {
-        if (swizzleSupport) {
-            // set swizzle
-            const GLint bgraSwizzle[] = { GL_BLUE, GL_GREEN, GL_RED, GL_ALPHA };
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_R, bgraSwizzle[0]);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_G, bgraSwizzle[1]);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_B, bgraSwizzle[2]);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_A, bgraSwizzle[3]);
-            if (npotSupport) {
-                // allocate texture memory and upload pixels
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surfaceWidth, surfaceHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, surfacePixels);
-            }
-            else {
-                // allocate texture memory
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, [self pow2Get :surfaceWidth], [self pow2Get :surfaceHeight], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-                // upload pixels
-                glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, surfaceWidth, surfaceHeight, GL_RGBA, GL_UNSIGNED_BYTE, surfacePixels);
-            }
-        }
-        else {
-            // we must pass through a temporary buffer
-            SVGTuint* rgbaPixels = malloc(surfaceWidth * surfaceHeight * sizeof(SVGTuint));
-            if (rgbaPixels != NULL) {
-                // copy AmanithSVG drawing surface content into the specified pixels buffer, taking care to swap red <--> blue channels
-                if (svgtSurfaceCopy(svgSurface, rgbaPixels, SVGT_TRUE, SVGT_FALSE) == SVGT_NO_ERROR) {
-                    if (npotSupport) {
-                        // allocate texture memory and upload pixels
-                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, surfaceWidth, surfaceHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgbaPixels);
-                    }
-                    else {
-                        // allocate texture memory
-                        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, [self pow2Get :surfaceWidth], [self pow2Get :surfaceHeight], 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-                        // upload pixels
-                        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, surfaceWidth, surfaceHeight, GL_RGBA, GL_UNSIGNED_BYTE, rgbaPixels);
-                    }
-                }
-                free(rgbaPixels);
-            }
-        }
-    }
-#else
     MTLRegion region = {
         { 0, 0, 0 },                        // MTLOrigin
         { surfaceWidth, surfaceHeight, 1 }  // MTLSize
@@ -886,66 +653,8 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef displayLink,
     surfaceTexture = [mtlDevice newTextureWithDescriptor:textureDescriptor];
     // upload pixels
     [surfaceTexture replaceRegion:region mipmapLevel:0 withBytes:surfacePixels bytesPerRow:surfaceWidth*4];
-#endif
 }
 
-#if defined(USE_OPENGL)
-- (void) drawBackgroundTexture {
-
-    // get view dimensions in pixels, taking care of Retina display
-    // see https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/OpenGL-MacProgGuide/EnablingOpenGLforHighResolution/EnablingOpenGLforHighResolution.html
-    NSRect backingBounds = [self convertRectToBacking:[self bounds]];
-    NSSize backingSize = backingBounds.size;
-    SVGTfloat u = backingSize.width / BACKGROUND_PATTERN_WIDTH;
-    SVGTfloat v = backingSize.height / BACKGROUND_PATTERN_HEIGHT;
-
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-    glDisable(GL_BLEND);
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, patternTexture);
-    // simply put a quad, covering the whole window
-    [self texturedRectangleDraw :0.0f :0.0f :backingSize.width :backingSize.height :u :v];
-}
-
-- (void) drawSurfaceTexture {
-
-    // get AmanithSVG surface dimensions
-    SVGTfloat surfaceWidth = (SVGTfloat)svgtSurfaceWidth(svgSurface);
-    SVGTfloat surfaceHeight = (SVGTfloat)svgtSurfaceHeight(svgSurface);
-    SVGTfloat tx = (SVGTfloat)((SVGTint)(surfaceTranslation[0] + 0.5f));
-    SVGTfloat ty = (SVGTfloat)((SVGTint)(surfaceTranslation[1] + 0.5f));
-    SVGTfloat u, v;
-
-    if (npotSupport) {
-        u = 1.0f;
-        v = 1.0f;
-    }
-    else {
-        // greater (or equal) power of two values
-        SVGTfloat texWidth = (SVGTfloat)[self pow2Get :svgtSurfaceWidth(svgSurface)];
-        SVGTfloat texHeight = (SVGTfloat)[self pow2Get :svgtSurfaceHeight(svgSurface)];
-        u = (surfaceWidth - 0.5f) / texWidth;
-        v = (surfaceHeight - 0.5f) / texHeight;
-    }
-
-    // enable per-pixel alpha blending, using surface texture as source
-    glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
-    glEnable(GL_BLEND);
-    glEnable(GL_TEXTURE_2D);
-    glBindTexture(GL_TEXTURE_2D, surfaceTexture);
-    // simply put a quad
-    [self texturedRectangleDraw :tx :ty :surfaceWidth :surfaceHeight :u :v];
-
-    // draw a solid black frame surrounding the SVG document
-    glColor4f(0.0f, 0.0f, 0.0f, 1.0f);
-    glDisable(GL_BLEND);
-    glDisable(GL_TEXTURE_2D);
-    [self rectangleDraw :tx :ty :surfaceWidth :2.0f];
-    [self rectangleDraw :tx :ty :2.0f :surfaceHeight];
-    [self rectangleDraw :tx :ty + surfaceHeight - 2.0f :surfaceWidth :2.0f];
-    [self rectangleDraw :tx + surfaceWidth - 2.0f :ty :2.0f :surfaceHeight];
-}
-#else
 - (void) drawBackgroundTexture :(id<MTLRenderCommandEncoder>)commandEncoder {
 
     SVGTfloat width = (SVGTfloat)viewportSize.x;
@@ -979,158 +688,52 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef displayLink,
     [self rectangleDraw :commandEncoder :tx :ty + surfaceHeight - 2.0f :surfaceWidth :2.0f];
     [self rectangleDraw :commandEncoder :tx + surfaceWidth - 2.0f :ty :2.0f :surfaceHeight];
 }
-#endif
+
+- (void) texturedRectangleDraw :(id<MTLRenderCommandEncoder>)commandEncoder :(SVGTfloat)x :(SVGTfloat)y :(SVGTfloat)width :(SVGTfloat)height :(SVGTfloat)u :(SVGTfloat)v {
+
+    // triangle strip
+    const TexturedVertex rectVertices[4] = {
+        // pixel positions           texture coordinates
+        { { x, y },                  { 0.0f, 0.0f } },
+        { { x + width, y },          { u, 0.0f } },
+        { { x, y + height },         { 0.0f, v } },
+        { { x + width, y + height }, { u, v } }
+    };
+    [commandEncoder setVertexBytes:rectVertices length:sizeof(rectVertices) atIndex:0];
+    [commandEncoder setVertexBytes:&viewportSize length:sizeof(viewportSize) atIndex:1];
+    [commandEncoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+}
+
+- (void) rectangleDraw :(id<MTLRenderCommandEncoder>)commandEncoder :(SVGTfloat)x :(SVGTfloat)y :(SVGTfloat)width :(SVGTfloat)height {
+
+    // triangle strip
+    const GeometricVertex rectVertices[4] = {
+        // pixel positions
+        { { x, y } },
+        { { x + width, y } },
+        { { x, y + height } },
+        { { x + width, y + height } }
+    };
+    [commandEncoder setVertexBytes:rectVertices length:sizeof(rectVertices) atIndex:0];
+    [commandEncoder setVertexBytes:&viewportSize length:sizeof(viewportSize) atIndex:1];
+    [commandEncoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+}
 
 - (void) deleteTextures {
 
-#if defined(USE_OPENGL)
-    if (patternTexture != 0) {
-        glDeleteTextures(1, &patternTexture);
-        patternTexture = 0;
-    }
-
-    if (surfaceTexture != 0) {
-        glDeleteTextures(1, &surfaceTexture);
-        surfaceTexture = 0;
-    }
-#else
     if (patternTexture != nil) {
         [patternTexture setPurgeableState:MTLPurgeableStateEmpty];
-        [patternTexture release];
         patternTexture = nil;
     }
     if (surfaceTexture != nil) {
         [surfaceTexture setPurgeableState:MTLPurgeableStateEmpty];
-        [surfaceTexture release];
         surfaceTexture = nil;
     }
-#endif
 }
 
-// resize AmanithSVG surface to the given dimensions, then draw the loaded SVG document
-- (void) svgDraw :(SVGTuint)width :(SVGTuint)height {
-
-    if (svgSurface != SVGT_INVALID_HANDLE) {
-        // destroy current surface texture
-    #if defined(USE_OPENGL)
-        if (surfaceTexture != 0) {
-            glDeleteTextures(1, &surfaceTexture);
-            surfaceTexture = 0;
-        }
-    #else
-        if (surfaceTexture != nil) {
-            [surfaceTexture setPurgeableState:MTLPurgeableStateEmpty];
-            [surfaceTexture release];
-            surfaceTexture = nil;
-        }
-    #endif
-        // resize AmanithSVG surface
-        svgtSurfaceResize(svgSurface, width, height);
-    }
-    else {
-        // first time, we must create AmanithSVG surface
-        svgSurface = svgtSurfaceCreate(width, height);
-        // clear the drawing surface (full transparent white) at every svgtDocDraw call
-        svgtClearColor(1.0f, 1.0f, 1.0f, 0.0f);
-        svgtClearPerform(SVGT_TRUE);
-    }
-    // draw the SVG document (upon AmanithSVG surface)
-    svgtDocDraw(svgDoc, svgSurface, SVGT_RENDERING_QUALITY_BETTER);
-    // create surface texture
-    [self genSurfaceTexture];
-}
-
-// viewer functions
-- (void) sceneDraw {
-#if defined(USE_OPENGL)
-    // get view dimensions in pixels, taking care of Retina display
-    // see https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/OpenGL-MacProgGuide/EnablingOpenGLforHighResolution/EnablingOpenGLforHighResolution.html
-    NSRect backingBounds = [self convertRectToBacking:[self bounds]];
-    SVGTuint backingPixelWidth = (SVGTuint)backingBounds.size.width;
-    SVGTuint backingPixelHeight = (SVGTuint)backingBounds.size.height;
-
-    // set OpenGL viewport and projection
-    glViewport(0, 0, backingPixelWidth, backingPixelHeight);
-    [self projectionLoad :0.0f :backingPixelWidth :0.0f :backingPixelHeight];
-    // clear OpenGL buffer
-    glClear(GL_COLOR_BUFFER_BIT);
-    // draw pattern background
-    [self drawBackgroundTexture];
-    // put AmanithSVG surface using per-pixel alpha blend
-    if ((svgDoc != SVGT_INVALID_HANDLE) && (svgSurface != SVGT_INVALID_HANDLE)) {
-        [self drawSurfaceTexture];
-    }
-#else
-    id<MTLCommandBuffer> commandBuffer = [mtlCommandQueue commandBuffer];
-    // obtain a render pass descriptor generated from the view's drawable textures
-    MTLRenderPassDescriptor* passDescriptor = [self currentRenderPassDescriptor];
-
-    if (passDescriptor != nil) {
-        id<MTLRenderCommandEncoder> commandEncoder = [commandBuffer renderCommandEncoderWithDescriptor:passDescriptor];
-        // set the region of the drawable to draw into
-        [commandEncoder setViewport:(MTLViewport){ 0.0, 0.0, viewportSize.x, viewportSize.y, 0.0, 1.0 }];
-        // draw pattern background
-        [self drawBackgroundTexture:commandEncoder];
-        // put AmanithSVG surface using per-pixel alpha blend
-        if ((svgDoc != SVGT_INVALID_HANDLE) && (svgSurface != SVGT_INVALID_HANDLE)) {
-            [self drawSurfaceTexture:commandEncoder];
-        }
-        [commandEncoder endEncoding];
-        [commandBuffer presentDrawable:[self currentDrawable]];
-    }
-
-    // finalize rendering and push the command buffer to the GPU
-    [commandBuffer commit];
-#endif    
-}
-
-- (void) sceneResize :(SVGTuint)width :(SVGTuint)height {
-
-    resizing = SVGT_TRUE;
-
-    // create / resize the AmanithSVG surface such that it is centered within the OpenGL view
-    if (svgDoc != SVGT_INVALID_HANDLE) {
-        // calculate AmanithSVG surface dimensions
-        SimpleRect srfRect = surfaceDimensionsCalc(svgDoc, width, height);
-        // create / resize AmanithSVG surface, then draw the loaded SVG document
-        [self svgDraw :srfRect.width :srfRect.height];
-        // center AmanithSVG surface within the OpenGL view
-        surfaceTranslation[0] = (SVGTfloat)((SVGTint)width - (SVGTint)svgtSurfaceWidth(svgSurface)) * 0.5f;
-        surfaceTranslation[1] = (SVGTfloat)((SVGTint)height - (SVGTint)svgtSurfaceHeight(svgSurface)) * 0.5f;
-    }
-
-    // we have finished with the resizing, now we can update the window content (i.e. draw)
-    resizing = SVGT_FALSE;
-    forceRedraw = SVGT_TRUE;
-}
-
-- (void) windowResize :(const SimpleRect*)desiredRect {
-
-    NSRect r;
-    // get current window dimensions
-    NSWindow* window = [self window];
-    // get screen dimensions
-    SimpleRect screenRect = [self screenDimensionsGet];
-    // clamp window dimensions against screen bounds
-    SVGTfloat w = MIN(desiredRect->width, screenRect.width);
-    SVGTfloat h = MIN(desiredRect->height, screenRect.height);
-    NSRect bounds = [self convertRectToBacking:[self bounds]];
-
-    // move / resize the window
-    r.origin.x = 0;
-    r.origin.y = 0;
-    r.size.width = w;
-    r.size.height = h;
-    // take care of Retina display
-    r = [self convertRectFromBacking :r];
-    // we want to be sure that a "resize" event will be fired (the setContentSize won't emit a reshape event if new dimensions are equal to the current ones)
-    [window setContentSize:r.size];
-    [window center];
-    if (((SVGTuint)bounds.size.width == desiredRect->width) && ((SVGTuint)bounds.size.height == desiredRect->height)) {
-        [self sceneResize :desiredRect->width :desiredRect->height];
-    }
-}
-
+// ---------------------------------------------------------------
+//                       Event handlers
+// ---------------------------------------------------------------
 - (void) deltaTranslation :(SVGTfloat)deltaX :(SVGTfloat)deltaY {
 
     surfaceTranslation[0] += deltaX;
@@ -1138,38 +741,6 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef displayLink,
     forceRedraw = SVGT_TRUE;
 }
 
-- (SVGTboolean) viewerInit :(const char*)fileName {
-
-    SVGTboolean ok = SVGT_FALSE;
-    // get screen dimensions
-    SimpleRect screenRect = [self screenDimensionsGet];
-
-    // initialize AmanithSVG library (actually just the first call performs the real initialization)
-    if (svgtInit(screenRect.width, screenRect.height, [self screenDpiGet]) == SVGT_NO_ERROR) {
-        // destroy a previously loaded document, if any
-        if (svgDoc != SVGT_INVALID_HANDLE) {
-            svgtDocDestroy(svgDoc);
-        }
-        // load a new SVG file
-        svgDoc = loadSvg(fileName);
-        ok = (svgDoc != SVGT_INVALID_HANDLE) ? SVGT_TRUE : SVGT_FALSE;
-    }
-    // we have finished
-    return ok;
-}
-
-// destroy SVG resources allocated by the viewer
-- (void) viewerDestroy {
-
-    // destroy the SVG document
-    svgtDocDestroy(svgDoc);
-    // destroy the drawing surface
-    svgtSurfaceDestroy(svgSurface);
-    // deinitialize AmanithSVG library
-    svgtDone();
-}
-
-// mouse and keyboard events
 - (void) mouseDown: (NSEvent *)theEvent {
 
     NSPoint p;
@@ -1203,71 +774,118 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef displayLink,
     oldMouseY = p.y;
 }
 
+// ---------------------------------------------------------------
+//                          SVG viewer
+// ---------------------------------------------------------------
+
+// resize AmanithSVG surface to the given dimensions, then draw the loaded SVG document
+- (void) svgDraw :(SVGTuint)width :(SVGTuint)height {
+
+    if (svgSurface != SVGT_INVALID_HANDLE) {
+        // destroy current surface texture
+        if (surfaceTexture != nil) {
+            [surfaceTexture setPurgeableState:MTLPurgeableStateEmpty];
+            surfaceTexture = nil;
+        }
+        // resize AmanithSVG surface
+        svgtSurfaceResize(svgSurface, width, height);
+    }
+    else {
+        // first time, we must create AmanithSVG surface
+        svgSurface = svgtSurfaceCreate(width, height);
+    }
+    // clear the drawing surface (full transparent white)
+    svgtSurfaceClear(svgSurface, 1.0f, 1.0f, 1.0f, 0.0f);
+    // draw the SVG document (upon AmanithSVG surface)
+    svgtDocDraw(svgDoc, svgSurface, SVGT_RENDERING_QUALITY_BETTER);
+    // create surface texture
+    [self genSurfaceTexture];
+}
+
+// draw the scene: background pattern and AmanithSVG surface (texture)
+- (void) sceneDraw {
+
+    id<MTLCommandBuffer> commandBuffer = [mtlCommandQueue commandBuffer];
+    // obtain a render pass descriptor generated from the view's drawable textures
+    MTLRenderPassDescriptor* passDescriptor = [self currentRenderPassDescriptor];
+
+    if (passDescriptor != nil) {
+        id<MTLRenderCommandEncoder> commandEncoder = [commandBuffer renderCommandEncoderWithDescriptor:passDescriptor];
+        // set the region of the drawable to draw into
+        [commandEncoder setViewport:(MTLViewport){ 0.0, 0.0, viewportSize.x, viewportSize.y, 0.0, 1.0 }];
+        // draw pattern background
+        [self drawBackgroundTexture:commandEncoder];
+        // put AmanithSVG surface using per-pixel alpha blend
+        if ((svgDoc != SVGT_INVALID_HANDLE) && (svgSurface != SVGT_INVALID_HANDLE)) {
+            [self drawSurfaceTexture:commandEncoder];
+        }
+        [commandEncoder endEncoding];
+        [commandBuffer presentDrawable:[self currentDrawable]];
+    }
+
+    // finalize rendering and push the command buffer to the GPU
+    [commandBuffer commit];
+    [commandBuffer waitUntilCompleted];
+}
+
+// resize AmanithSVG surface and re-draw the loaded SVG document
+- (void) sceneResize :(SVGTuint)width :(SVGTuint)height {
+
+    resizing = SVGT_TRUE;
+
+    // create / resize the AmanithSVG surface such that it is centered within the OpenGL view
+    if (svgDoc != SVGT_INVALID_HANDLE) {
+        // calculate AmanithSVG surface dimensions
+        SimpleRect srfRect = surfaceDimensionsCalc(svgDoc, width, height);
+        // create / resize AmanithSVG surface, then draw the loaded SVG document
+        [self svgDraw :srfRect.width :srfRect.height];
+        // center AmanithSVG surface within the OpenGL view
+        surfaceTranslation[0] = (SVGTfloat)((SVGTint)width - (SVGTint)svgtSurfaceWidth(svgSurface)) * 0.5f;
+        surfaceTranslation[1] = (SVGTfloat)((SVGTint)height - (SVGTint)svgtSurfaceHeight(svgSurface)) * 0.5f;
+    }
+
+    // output AmanithSVG log content, using the Apple unified logging system
+    // NB: AmanithSVG log was initialized within the pickedDocumentLoad
+    [self logOutput];
+    // release AmanithSVG log buffer
+    [self logDestroy];
+
+    // we have finished with the resizing, now we can update the window content (i.e. draw)
+    resizing = SVGT_FALSE;
+    forceRedraw = SVGT_TRUE;
+}
+
+// from NSResponder
 - (BOOL) acceptsFirstResponder {
     // as first responder, the receiver is the first object in the responder chain to be sent key events and action messages
     return YES;
 }
 
+// from NSResponder
 - (BOOL) becomeFirstResponder {
 
     return YES;
 }
 
+// from NSResponder
 - (BOOL) resignFirstResponder {
 
     return YES;
 }
 
+// from NSView
 - (BOOL) isFlipped {
 
     return NO;
 }
 
-// menu handlers
-- (void) fileChooseDialog :(id)sender {
-
-    (void)sender;
-
-    if (!selectingFile) {
-        // create an open document panel
-        NSOpenPanel* panel = [NSOpenPanel openPanel];
-        NSArray* fileTypes = [[NSArray alloc] initWithObjects:@"svg", @"SVG", nil];
-
-        selectingFile = SVGT_TRUE;
-        // open only .svg files
-        [panel setAllowedFileTypes:fileTypes];
-        // display the panel
-        [panel beginWithCompletionHandler:^(NSInteger result) {
-            // lets load the SVG file, if OK button has been clicked
-            if (result == NSFileHandlingPanelOKButton) {
-                // grab a reference to what has been selected
-                NSURL* fileUrl = [[panel URLs]objectAtIndex:0];
-                // write our file name to a label
-                NSString* filePath = [fileUrl path];
-                // get standard C string
-                const char* fileName = (const char *)[filePath fileSystemRepresentation];
-
-                // load the SVG file
-                if ([self viewerInit :fileName]) {
-                    // get screen dimensions
-                    SimpleRect screenRect = [self screenDimensionsGet];
-                    // calculate AmanithSVG surface dimensions
-                    SimpleRect desiredRect = surfaceDimensionsCalc(svgDoc, screenRect.width, screenRect.height);
-                    // resize the window in order to match the desired surface dimensions
-                    [self windowResize :&desiredRect];
-                }
-            }
-            // now we can select another file, if we desire
-            selectingFile = SVGT_FALSE;
-        }];
-    }
-}
-
+// handler for "Quit" menu option
 - (void) applicationTerminate :(id)sender {
 
     (void)sender;
-    // exit from main loop
-    done = SVGT_TRUE;
+
+    // terminate the application
+    [NSApp terminate:self];
 }
 
 // from NSWindowDelegate
@@ -1275,14 +893,33 @@ static CVReturn displayLinkCallback(CVDisplayLinkRef displayLink,
 
     (void)note;
 
-#if defined(USE_OPENGL)
-    // Stop the display link when the window is closing because default
-    // OpenGL render buffers will be destroyed. If display link continues to
-    // fire without renderbuffers, OpenGL draw calls will set errors.
-    CVDisplayLinkStop(displayLink);
-#endif    
-    done = SVGT_TRUE;
+    // terminate the application
+    [NSApp terminate:self];
 }
+
+// from NSApplicationDelegate
+- (void)applicationDidFinishLaunching:(NSNotification *)notification {
+
+    (void)notification;
+
+    // initialize AmanithSVG and load external resources (fonts/images)
+    [self amanithsvgInit];
+}
+
+// from NSApplicationDelegate
+- (void)applicationWillTerminate:(NSNotification *)notification {
+
+    (void)notification;
+
+    // destroy used textures
+    [self deleteTextures];
+    // destroy Metal command queue
+    mtlCommandQueue = nil;
+
+    // terminate AmanithSVG library
+    [self amanithsvgRelease];
+}
+
 @end
 
 // ---------------------------------------------------------------
@@ -1306,15 +943,13 @@ static void applicationMenuPopulate(NSMenu* subMenu,
 
 static void mainMenuPopulate(const ViewerView* view) {
 
-    NSMenuItem* menuItem;
-    NSMenu* subMenu;
     // create main menu = menu bar
     NSMenu* mainMenu = [[NSMenu alloc] initWithTitle:@"MainMenu"];
-    
     // the titles of the menu items are for identification purposes only and shouldn't be localized; the strings in the menu bar come
     // from the submenu titles, except for the application menu, whose title is ignored at runtime
-    menuItem = [mainMenu addItemWithTitle:@"Apple" action:NULL keyEquivalent:@""];
-    subMenu = [[NSMenu alloc] initWithTitle:@"Apple"];
+    NSMenuItem* menuItem = [mainMenu addItemWithTitle:@"Apple" action:NULL keyEquivalent:@""];
+    NSMenu* subMenu = [[NSMenu alloc] initWithTitle:@"Apple"];
+
     [NSApp performSelector:@selector(setAppleMenu:) withObject:subMenu];
     applicationMenuPopulate(subMenu, view);
     [mainMenu setSubmenu:subMenu forItem:menuItem];
@@ -1330,65 +965,52 @@ static void applicationMenuCreate(const ViewerView* view) {
 int main(int argc,
          char *argv[]) {
 
+    NSWindow* window;
+    ViewerView* view;
+    NSRect frame, maxRect;
+    // create the application
+    NSScreen* screen = [NSScreen mainScreen];
+    NSApplication* app = [NSApplication sharedApplication];
+    // get the device instance Metal selects as the default
+    id<MTLDevice> mtlDevice = MTLCreateSystemDefaultDevice();
+
     (void)argc;
     (void)argv;
 
-    @autoreleasepool {
+    // take care of Retina display
+    frame = NSMakeRect(0, 0, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT);
+    frame = [screen convertRectFromBacking :frame];
 
-        NSScreen* screen = [NSScreen mainScreen];
-        NSRect frame = NSMakeRect(0, 0, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT);
+    // create the window
+    window = [[NSWindow alloc] initWithContentRect:frame styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable backing:NSBackingStoreBuffered defer: TRUE];
+    [window setAcceptsMouseMovedEvents:YES];
+    [window setTitle: @WINDOW_TITLE];
 
-        // take care of Retina display
-        frame = [screen convertRectFromBacking :frame];
+    // create the Metal view
+    view = [[ViewerView alloc] initWithFrame:frame device:mtlDevice];
 
-        // get application
-        NSApplication* app = [NSApplication sharedApplication];
-        [NSApp setActivationPolicy: NSApplicationActivationPolicyRegular];
+    // link the view to the application
+    [app setActivationPolicy:NSApplicationActivationPolicyRegular];
+    [app setDelegate: view];
 
-        // create the window
-        NSWindow* window = [[NSWindow alloc] initWithContentRect:frame styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable | NSWindowStyleMaskMiniaturizable | NSWindowStyleMaskResizable backing:NSBackingStoreBuffered defer: TRUE];
-        [window setAcceptsMouseMovedEvents:YES];
-        [window setTitle: @ WINDOW_TITLE];
+    // link the view to the window
+    [window setDelegate: view];
+    [window setContentView: view];
+    [window makeFirstResponder: view];
+    // do not allow a content size bigger than the maximum surface dimension that AmanithSVG can handle
+    maxRect = NSMakeRect(0, 0, svgtSurfaceMaxDimension(), svgtSurfaceMaxDimension());
+    maxRect = [screen convertRectFromBacking :maxRect];
+    [window setContentMaxSize: maxRect.size];
 
-    #if defined(USE_OPENGL)
-        // create the OpenGL view
-        ViewerView* view = [[ViewerView alloc] initWithFrame: frame];
-    #else
-        // create the Metal view
-        id<MTLDevice> mtlDevice = MTLCreateSystemDefaultDevice();
-        ViewerView* view = [[ViewerView alloc] initWithFrame:frame device:mtlDevice];
-    #endif
+    // center the window
+    [window center];
+    [window makeKeyAndOrderFront: nil];
 
-        // link the view to the window
-        [window setDelegate: view];
-        [window setContentView: view];
-        [window makeFirstResponder: view];
-        // do not allow a content size bigger than the maximum surface dimension that AmanithVG can handle
-        NSRect maxRect = NSMakeRect(0.0f, 0.0f, svgtSurfaceMaxDimension(), svgtSurfaceMaxDimension());
-        maxRect = [screen convertRectFromBacking :maxRect];
-        [window setContentMaxSize: maxRect.size];
-        [view release];
-
-        // center the window
-        [window center];
-        [window makeKeyAndOrderFront: nil];
-
-        // create and populate the menu
-        applicationMenuCreate(view);
-        [app finishLaunching];
-
-        // enter main loop
-        done = SVGT_FALSE;
-        while (!done) {
-            // dispatch events
-            NSEvent* event = [app nextEventMatchingMask: NSEventMaskAny untilDate: [NSDate dateWithTimeIntervalSinceNow: 0.0] inMode: NSDefaultRunLoopMode dequeue: true];
-            if (event != nil) {
-                [app sendEvent: event];
-                [app updateWindows];
-            }
-        }
-
-    } // @autoreleasepool
+    // create and populate the menu
+    applicationMenuCreate(view);
+    // starts the main event loop
+    [app finishLaunching];
+    [app run];
 
     return EXIT_SUCCESS;
 }

@@ -1,5 +1,5 @@
 /****************************************************************************
-** Copyright (C) 2013-2018 Mazatech S.r.l. All rights reserved.
+** Copyright (C) 2013-2023 Mazatech S.r.l. All rights reserved.
 **
 ** This file is part of AmanithSVG software, an SVG rendering engine.
 **
@@ -24,12 +24,16 @@ extern "C" {
 /* Compiler detection */
 #if defined(_MSC_VER)
     #define SVG_CC_MSVC _MSC_VER
+#elif defined(__clang__)
+    /* Clang */
+    #define SVG_CC_CLANG
+    #define SVG_CC_HAS_CLASS_VISIBILITY
 #elif (defined(__GNUC__) && !defined(__ARMCC_VERSION)) || (defined(__SYMBIAN32__) && defined (__GCC32__))
     #define SVG_CC_GCC
     #if (__GNUC__ >= 4) || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
-        #define SVG_GCC_HAS_CLASS_VISIBILITY
+        #define SVG_CC_HAS_CLASS_VISIBILITY
     #else
-        #undef SVG_GCC_HAS_CLASS_VISIBILITY
+        #undef SVG_CC_HAS_CLASS_VISIBILITY
     #endif
 #elif defined(__ARMCC_VERSION) || (defined(__SYMBIAN32__) && defined(__ARMCC_2__))
     #define SVG_CC_ARMCC __ARMCC_VERSION
@@ -41,12 +45,15 @@ extern "C" {
 #if defined(SVG_MAKE_STATIC_LIBRARY)
     #undef SVG_MAKE_DYNAMIC_LIBRARY
     /* For pre-linked static libraries (iOS), we want to show/export only SVGT API public functions */
-    #if defined(SVG_CC_GCC)
-        #if defined(SVG_GCC_HAS_CLASS_VISIBILITY)
+    #if (defined(SVG_CC_GCC) || defined(SVG_CC_CLANG))
+        #if defined(SVG_CC_HAS_CLASS_VISIBILITY)
             #define SVGT_API_CALL __attribute__((visibility("default"))) extern
         #else
             #define SVGT_API_CALL extern
         #endif
+    #elif defined(SVG_CC_ARMCC)
+        // ARM Compiler 6 (armclang)
+        #define SVGT_API_CALL __attribute__((visibility("default"))) extern
     #else
         #define SVGT_API_CALL
     #endif
@@ -57,9 +64,9 @@ extern "C" {
         #else
             #define SVGT_API_CALL __declspec(dllimport)
         #endif
-    #elif defined(SVG_CC_GCC)
+    #elif (defined(SVG_CC_GCC) || defined(SVG_CC_CLANG))
         #if defined(SVG_MAKE_DYNAMIC_LIBRARY)
-            #if defined(SVG_GCC_HAS_CLASS_VISIBILITY)
+            #if defined(SVG_CC_HAS_CLASS_VISIBILITY)
                 #define SVGT_API_CALL __attribute__((visibility("default"))) extern
             #else
                 #define SVGT_API_CALL extern

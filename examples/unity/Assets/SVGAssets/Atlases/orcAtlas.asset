@@ -1,0 +1,248 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d995787f488229646bc6ee47ced3138d, type: 3}
+  m_Name: orcAtlas
+  m_EditorClassIdentifier: 
+  m_GUID: 23066d7d5f3a4208ac66425add890d95
+  m_OutputFolder: Assets/SVGAssets/Atlases
+  m_OffsetScale: 1
+  m_Pow2Textures: 0
+  m_MaxTexturesDimension: 2048
+  m_SpritesBorder: 1
+  m_ClearColor: {r: 1, g: 1, b: 1, a: 0}
+  m_FastUpload: 1
+  m_SvgList:
+  - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+    Scale: 1
+    SeparateGroups: 1
+    Instantiable: 1
+    InstanceBaseIdx: 20
+  m_GeneratedTexturesFiles:
+  - Path: Assets/SVGAssets/Atlases/orcAtlas/23066d7d5f3a4208ac66425add890d95/Textures/texture0.asset
+    Object: {fileID: 2800000, guid: 098e42ae4e5f33641a0bb3fe8614b1b9, type: 2}
+  m_GeneratedSpritesFiles:
+    m_KeysList:
+    - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+      ElemIdx: 65545
+    - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+      ElemIdx: 65543
+    - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+      ElemIdx: 65538
+    - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+      ElemIdx: 65540
+    - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+      ElemIdx: 65541
+    - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+      ElemIdx: 65542
+    - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+      ElemIdx: 65544
+    - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+      ElemIdx: 65536
+    - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+      ElemIdx: 65539
+    - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+      ElemIdx: 65537
+    m_ValuesList:
+    - Path: Assets/SVGAssets/Atlases/orcAtlas/23066d7d5f3a4208ac66425add890d95/Sprites/orc_head.asset
+      SpriteRef:
+        TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65545
+      SpriteData:
+        Sprite: {fileID: 21300000, guid: a92e9297ad18f594a9560850806139a1, type: 2}
+        Pivot: {x: 0.5493827, y: 0.3984375}
+        Border: {x: 0, y: 0, z: 0, w: 0}
+        ZOrder: 9
+        OriginalX: 6
+        OriginalY: 10
+        DstViewportWidth: 145.925
+        DstViewportHeight: 264.76
+        GenerationScale: 1
+        InCurrentInstancesGroup: 1
+      InstantiatedWidgetType: 1
+    - Path: Assets/SVGAssets/Atlases/orcAtlas/23066d7d5f3a4208ac66425add890d95/Sprites/orc_body.asset
+      SpriteRef:
+        TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65543
+      SpriteData:
+        Sprite: {fileID: 21300000, guid: 7304a6d7dcac504428be09c0b9f0a28a, type: 2}
+        Pivot: {x: 0.5, y: 0.5}
+        Border: {x: 0, y: 0, z: 0, w: 0}
+        ZOrder: 7
+        OriginalX: 27
+        OriginalY: 81
+        DstViewportWidth: 145.925
+        DstViewportHeight: 264.76
+        GenerationScale: 1
+        InCurrentInstancesGroup: 1
+      InstantiatedWidgetType: 1
+    - Path: Assets/SVGAssets/Atlases/orcAtlas/23066d7d5f3a4208ac66425add890d95/Sprites/orc_sx_x5F_leg_x5F_down.asset
+      SpriteRef:
+        TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65538
+      SpriteData:
+        Sprite: {fileID: 21300000, guid: cb007421dbc57ef47ac8c1021fe3b8ac, type: 2}
+        Pivot: {x: 0.3984375, y: 0.803681}
+        Border: {x: 0, y: 0, z: 0, w: 0}
+        ZOrder: 2
+        OriginalX: 76
+        OriginalY: 192
+        DstViewportWidth: 145.925
+        DstViewportHeight: 264.76
+        GenerationScale: 1
+        InCurrentInstancesGroup: 1
+      InstantiatedWidgetType: 1
+    - Path: Assets/SVGAssets/Atlases/orcAtlas/23066d7d5f3a4208ac66425add890d95/Sprites/orc_dx_x5F_leg_x5F_down.asset
+      SpriteRef:
+        TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65540
+      SpriteData:
+        Sprite: {fileID: 21300000, guid: 7c4b0b580813ff14480bd4d15087f8a7, type: 2}
+        Pivot: {x: 0.5, y: 0.8018868}
+        Border: {x: 0, y: 0, z: 0, w: 0}
+        ZOrder: 4
+        OriginalX: 42
+        OriginalY: 192
+        DstViewportWidth: 145.925
+        DstViewportHeight: 264.76
+        GenerationScale: 1
+        InCurrentInstancesGroup: 1
+      InstantiatedWidgetType: 1
+    - Path: Assets/SVGAssets/Atlases/orcAtlas/23066d7d5f3a4208ac66425add890d95/Sprites/orc_sx_x5F_arm_x5F_up.asset
+      SpriteRef:
+        TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65541
+      SpriteData:
+        Sprite: {fileID: 21300000, guid: 7da32b6e89afeb94ba8b4c7dd18d0fc3, type: 2}
+        Pivot: {x: 0.4453125, y: 0.6978022}
+        Border: {x: 0, y: 0, z: 0, w: 0}
+        ZOrder: 5
+        OriginalX: 96
+        OriginalY: 103
+        DstViewportWidth: 145.925
+        DstViewportHeight: 264.76
+        GenerationScale: 1
+        InCurrentInstancesGroup: 1
+      InstantiatedWidgetType: 1
+    - Path: Assets/SVGAssets/Atlases/orcAtlas/23066d7d5f3a4208ac66425add890d95/Sprites/orc_dx_x5F_arm_x5F_up.asset
+      SpriteRef:
+        TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65542
+      SpriteData:
+        Sprite: {fileID: 21300000, guid: 270e89c9aaf6a914580da8f270037f54, type: 2}
+        Pivot: {x: 0.6015625, y: 0.6978022}
+        Border: {x: 0, y: 0, z: 0, w: 0}
+        ZOrder: 6
+        OriginalX: 20
+        OriginalY: 99
+        DstViewportWidth: 145.925
+        DstViewportHeight: 264.76
+        GenerationScale: 1
+        InCurrentInstancesGroup: 1
+      InstantiatedWidgetType: 1
+    - Path: Assets/SVGAssets/Atlases/orcAtlas/23066d7d5f3a4208ac66425add890d95/Sprites/orc_dx_x5F_arm_x5F_down.asset
+      SpriteRef:
+        TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65544
+      SpriteData:
+        Sprite: {fileID: 21300000, guid: bffe8900868285246a16322cac5bcce8, type: 2}
+        Pivot: {x: 0.5, y: 0.85294116}
+        Border: {x: 0, y: 0, z: 0, w: 0}
+        ZOrder: 8
+        OriginalX: 20
+        OriginalY: 142
+        DstViewportWidth: 145.925
+        DstViewportHeight: 264.76
+        GenerationScale: 1
+        InCurrentInstancesGroup: 1
+      InstantiatedWidgetType: 1
+    - Path: Assets/SVGAssets/Atlases/orcAtlas/23066d7d5f3a4208ac66425add890d95/Sprites/orc_sx_x5F_arm_x5F_down.asset
+      SpriteRef:
+        TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65536
+      SpriteData:
+        Sprite: {fileID: 21300000, guid: 249b3a78a3eccd84fa426a8664cc128a, type: 2}
+        Pivot: {x: 0.5, y: 0.85294116}
+        Border: {x: 0, y: 0, z: 0, w: 0}
+        ZOrder: 0
+        OriginalX: 100
+        OriginalY: 140
+        DstViewportWidth: 145.925
+        DstViewportHeight: 264.76
+        GenerationScale: 1
+        InCurrentInstancesGroup: 1
+      InstantiatedWidgetType: 1
+    - Path: Assets/SVGAssets/Atlases/orcAtlas/23066d7d5f3a4208ac66425add890d95/Sprites/orc_dx_x5F_leg_x5F_up.asset
+      SpriteRef:
+        TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65539
+      SpriteData:
+        Sprite: {fileID: 21300000, guid: a49ab9a1b30ba5d41b4066e8c1e54fba, type: 2}
+        Pivot: {x: 0.5, y: 0.6978022}
+        Border: {x: 0, y: 0, z: 0, w: 0}
+        ZOrder: 3
+        OriginalX: 44
+        OriginalY: 148
+        DstViewportWidth: 145.925
+        DstViewportHeight: 264.76
+        GenerationScale: 1
+        InCurrentInstancesGroup: 1
+      InstantiatedWidgetType: 1
+    - Path: Assets/SVGAssets/Atlases/orcAtlas/23066d7d5f3a4208ac66425add890d95/Sprites/orc_sx_x5F_leg_x5F_up.asset
+      SpriteRef:
+        TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65537
+      SpriteData:
+        Sprite: {fileID: 21300000, guid: e819f71be78fd344bb0a8d4ca30b40b4, type: 2}
+        Pivot: {x: 0.5, y: 0.70329666}
+        Border: {x: 0, y: 0, z: 0, w: 0}
+        ZOrder: 1
+        OriginalX: 71
+        OriginalY: 147
+        DstViewportWidth: 145.925
+        DstViewportHeight: 264.76
+        GenerationScale: 1
+        InCurrentInstancesGroup: 1
+      InstantiatedWidgetType: 1
+  m_EditorGenerationScale: 1
+  m_SvgListHashOld: B56040BDE709A9F059A3BE5CE680A657
+  m_SvgListHashCurrent: B56040BDE709A9F059A3BE5CE680A657
+  m_GeneratedSpritesLists:
+    m_KeysList: 4e510000
+    m_ValuesList:
+    - Sprites:
+      - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65545
+      - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65543
+      - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65538
+      - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65540
+      - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65541
+      - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65542
+      - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65544
+      - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65536
+      - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65539
+      - TxtAsset: {fileID: 4900000, guid: e4bf6b66c7449bd46a8c0c3c86581cd5, type: 3}
+        ElemIdx: 65537
+  m_SpritesPreviewSize: 35
+  m_ReferenceWidth: 960
+  m_ReferenceHeight: 540
+  m_DeviceTestWidth: 960
+  m_DeviceTestHeight: 540
+  m_ScaleType: 2
+  m_Match: 0.5

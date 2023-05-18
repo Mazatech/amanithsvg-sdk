@@ -1,5 +1,5 @@
 /****************************************************************************
-** Copyright (c) 2013-2019 Mazatech S.r.l.
+** Copyright (c) 2013-2023 Mazatech S.r.l.
 ** All rights reserved.
 ** 
 ** Redistribution and use in source and binary forms, with or without
@@ -35,31 +35,9 @@
 ****************************************************************************/
 package com.mazatech.amanithsvg.svgviewer;
 
-import android.annotation.TargetApi;
-import android.content.Context;
-import android.graphics.PixelFormat;
-import android.opengl.GLES11Ext;
-import android.opengl.GLES30;
-
-import static android.opengl.EGL14.EGL_CONTEXT_CLIENT_VERSION;
-import static com.mazatech.svgt.AmanithSVG.SVGT_VENDOR;
-import static com.mazatech.svgt.AmanithSVG.SVGT_VERSION;
-
-import android.graphics.PointF;
-import android.graphics.Rect;
-import android.opengl.GLSurfaceView;
-import android.support.annotation.NonNull;
-import android.support.v7.app.AlertDialog;
-import android.util.DisplayMetrics;
-import android.view.MotionEvent;
-
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
 import java.util.Calendar;
 
 import javax.microedition.khronos.egl.EGL10;
@@ -69,12 +47,35 @@ import javax.microedition.khronos.egl.EGLDisplay;
 import javax.microedition.khronos.opengles.GL10;
 import javax.microedition.khronos.opengles.GL11;
 
+import android.content.Context;
+import android.graphics.PixelFormat;
+import static android.opengl.EGL14.EGL_CONTEXT_CLIENT_VERSION;
+import android.graphics.PointF;
+import android.graphics.Rect;
+import android.opengl.GLSurfaceView;
+import android.support.annotation.NonNull;
+import android.support.v7.app.AlertDialog;
+import android.util.Log;
+import android.view.MotionEvent;
+
+// AmanithSVG for Android
+import com.mazatech.android.SVGAssetsAndroid;
+
+// AmanithSVG (high level layer)
 import com.mazatech.svgt.AmanithSVG;
+import com.mazatech.svgt.SVGColor;
+import com.mazatech.svgt.SVGDocument;
+import com.mazatech.svgt.SVGSurface;
 import com.mazatech.svgt.SVGTError;
-import com.mazatech.svgt.SVGTHandle;
+import com.mazatech.svgt.SVGViewport;
+// AmanithSVG (low level layer)
+import com.mazatech.svgt.SVGTLogLevel;
 import com.mazatech.svgt.SVGTRenderingQuality;
+import com.mazatech.svgt.SVGTStringID;
 
 public class SvgViewerView extends GLSurfaceView {
+
+    private static final String LOG_TAG = "SvgViewerView";
 
     // touch state
     private static final int TOUCH_MODE_NONE = 0;
@@ -89,74 +90,56 @@ public class SvgViewerView extends GLSurfaceView {
     static final int BACKGROUND_PATTERN_COL0 = 0xFF808080;
     static final int BACKGROUND_PATTERN_COL1 = 0xFFC0C0C0;
 
+    // AmanithSVG for Android instance
+    private final SVGAssetsAndroid svg;
     // SVG surface and document
-    SVGTHandle svgSurface;
-    SVGTHandle svgDoc;
-
-    // OpenGL ES support of BGRA textures
-    boolean bgraSupport;
-    // OpenGL ES support of npot textures
-    boolean npotSupport;
-    // OpenGL ES support of texture swizzle
-    boolean swizzleSupport;
-    // OpenGL ES texture formats
-    int internalFormat;
-    int externalFormat;
+    private SVGSurface svgSurface;
+    private SVGDocument svgDoc;
     // OpenGL texture used to draw the pattern background
-    int[] patternTexture;
+    private int patternTexture;
     // OpenGL texture used to blit the AmanithSVG surface
-    int[] surfaceTexture;
-    float[] surfaceTranslation;
-    // the view renderer
-    Renderer renderer;
-    // SVG file content
-    String xmlText;
+    private int surfaceTexture;
+    private final float[] surfaceTranslation;
+    // SVG file name
+    private final String fullFileName;
     // touch state
-    int touchMode;
-    PointF touchStartPoint;
+    private int touchMode;
+    private final PointF touchStartPoint;
 
-    SvgViewerView(Context context, String filePath) {
+    SvgViewerView(Context context,
+                  SVGAssetsAndroid svgInstance,
+                  String filePath) {
 
         super(context);
 
-        patternTexture = new int[] { 0 };
-        surfaceTexture = new int[] { 0 };
+        svg = svgInstance;
+        svgDoc = null;
+        svgSurface = null;
+
+        patternTexture = 0;
+        surfaceTexture = 0;
         surfaceTranslation = new float[] { 0.0f, 0.0f };
         touchMode = TOUCH_MODE_NONE;
         touchStartPoint = new PointF();
-        // load SVG content
-        xmlText = loadXml(filePath);
+        // keep track of filename
+        fullFileName = filePath;
 
         // ask for a 32-bit surface with alpha
         getHolder().setFormat(PixelFormat.TRANSLUCENT);
         // setup the context factory for OpenGL ES 1.1 rendering
-        setEGLContextFactory(new ContextFactory());
+        setEGLContextFactory(new ContextFactory(this));
         // ask for 32bit RGBA (we are not interested in depth, stencil nor aa samples)
         setEGLConfigChooser(new ConfigChooser(8, 8, 8, 8, 0, 0, 0));
         setPreserveEGLContextOnPause(true);
 
         // set the renderer responsible for frame rendering
-        renderer = new SvgViewerViewRenderer(this);
+        Renderer renderer = new SvgViewerViewRenderer(this);
         setRenderer(renderer);
         setRenderMode(RENDERMODE_CONTINUOUSLY);
 
         // request focus
         setFocusable(true);
         requestFocus();
-    }
-
-    // return the power of two value greater (or equal) to a specified value
-    private int pow2Get(int value) {
-
-        int v = 1;
-
-        if (value >= 0x40000000) {
-            return 0x40000000;
-        }
-        while (v < value) {
-            v <<= 1;
-        }
-        return v;
     }
 
     // swap R and B components (ARGB <--> ABGR and vice versa)
@@ -169,7 +152,9 @@ public class SvgViewerView extends GLSurfaceView {
         return ag | (b << 16) | r;
     }
 
-    private void boxFit(@NonNull int[] srcRect, int dstWidth, int dstHeight) {
+    private void boxFit(@NonNull int[] srcRect,
+                        int dstWidth,
+                        int dstHeight) {
 
         float widthScale = (float)dstWidth / (float)(srcRect[0]);
         float heightScale = (float)dstHeight / (float)(srcRect[1]);
@@ -178,7 +163,9 @@ public class SvgViewerView extends GLSurfaceView {
         srcRect[1] = Math.round(srcRect[1] * scale);
     }
 
-    private Rect surfaceDimensionsCalc(SVGTHandle doc, int maxWidth, int maxHeight) {
+    private @NonNull Rect surfaceDimensionsCalc(SVGDocument doc,
+                                                int maxWidth,
+                                                int maxHeight) {
 
         Rect result = new Rect();
 
@@ -186,26 +173,18 @@ public class SvgViewerView extends GLSurfaceView {
             int[] srfRect = new int[] { 0, 0 };
             int maxAllowedDimension = AmanithSVG.svgtSurfaceMaxDimension();
             // round document dimensions
-            int svgWidth = Math.round(AmanithSVG.svgtDocWidth(doc));
-            int svgHeight = Math.round(AmanithSVG.svgtDocHeight(doc));
+            int svgWidth = Math.round(doc.getWidth());
+            int svgHeight = Math.round(doc.getHeight());
             // if the SVG document (i.e. the outermost <svg> element) does not specify 'width' and 'height' attributes, we start with default
             // surface dimensions, keeping the same aspect ratio of the 'viewBox' attribute (present in the outermost <svg> element)
             if ((svgWidth < 1) || (svgHeight < 1)) {
-                float[] docViewport = new float[4];
-                // get document viewport (as it appears in the 'viewBox' attribute)
-                if (AmanithSVG.svgtDocViewportGet(doc, docViewport) == SVGTError.None) {
-                    // start with desired dimensions
-                    srfRect[0] = Math.round(docViewport[2]);
-                    srfRect[1] = Math.round(docViewport[3]);
-                    if ((srfRect[0] > maxWidth) || (srfRect[1] > maxHeight)) {
-                        // adapt desired dimensions to max bounds
-                        boxFit(srfRect, maxWidth, maxHeight);
-                    }
-                }
-                else {
-                    // just start with something valid
-                    srfRect[0] = (maxWidth / 3) + 1;
-                    srfRect[1] = (maxHeight / 3) + 1;
+                SVGViewport docViewport = doc.getViewport();
+                // start with desired dimensions
+                srfRect[0] = Math.round(docViewport.getWidth());
+                srfRect[1] = Math.round(docViewport.getHeight());
+                if ((srfRect[0] > maxWidth) || (srfRect[1] > maxHeight)) {
+                    // adapt desired dimensions to max bounds
+                    boxFit(srfRect, maxWidth, maxHeight);
                 }
             }
             else {
@@ -235,39 +214,13 @@ public class SvgViewerView extends GLSurfaceView {
         return result;
     }
 
-    private String loadXml(String filePath) {
-
-        // read text from file
-        StringBuilder stringBuilder = new StringBuilder();
-
-        try {
-            BufferedReader reader = new BufferedReader(new FileReader(filePath));
-            String line;
-            while ((line = reader.readLine()) != null) {
-                stringBuilder.append(line);
-                stringBuilder.append('\n');
-            }
-            reader.close();
-        }
-        catch (IOException e) {
-            return null;
-        }
-        return stringBuilder.toString();
-    }
-
-    public SVGTHandle loadSvg(String xmlText) {
-
-        return (xmlText != null) ? AmanithSVG.svgtDocCreate(xmlText) : null;
-    }
-
     private void genPatternTexture(GL11 gl) {
 
         int i, j;
-        IntBuffer pixelsBuffer;
         // allocate pixels
         int[] pixels = new int[BACKGROUND_PATTERN_WIDTH * BACKGROUND_PATTERN_HEIGHT];
-        int col0 = bgraSupport ? BACKGROUND_PATTERN_COL0 : swapRedBlue(BACKGROUND_PATTERN_COL0);
-        int col1 = bgraSupport ? BACKGROUND_PATTERN_COL1 : swapRedBlue(BACKGROUND_PATTERN_COL1);
+        int col0 = svg.glSupportBGRA(gl) ? BACKGROUND_PATTERN_COL0 : swapRedBlue(BACKGROUND_PATTERN_COL0);
+        int col1 = svg.glSupportBGRA(gl) ? BACKGROUND_PATTERN_COL1 : swapRedBlue(BACKGROUND_PATTERN_COL1);
 
         for (i = 0; i < BACKGROUND_PATTERN_HEIGHT; ++i) {
             for (j = 0; j < BACKGROUND_PATTERN_WIDTH; ++j) {
@@ -280,94 +233,7 @@ public class SvgViewerView extends GLSurfaceView {
             }
         }
 
-        pixelsBuffer = IntBuffer.wrap(pixels);
-
-        gl.glGenTextures(1, patternTexture, 0);
-        gl.glEnable(GL10.GL_TEXTURE_2D);
-        gl.glBindTexture(GL10.GL_TEXTURE_2D, patternTexture[0]);
-        gl.glTexParameteri(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_MIN_FILTER, GL10.GL_NEAREST);
-        gl.glTexParameteri(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_MAG_FILTER, GL10.GL_NEAREST);
-        gl.glTexParameteri(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_WRAP_S, GL10.GL_REPEAT);
-        gl.glTexParameteri(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_WRAP_T, GL10.GL_REPEAT);
-        gl.glTexImage2D(GL10.GL_TEXTURE_2D, 0, internalFormat, BACKGROUND_PATTERN_WIDTH, BACKGROUND_PATTERN_HEIGHT, 0, externalFormat, GL10.GL_UNSIGNED_BYTE, pixelsBuffer);
-    }
-
-    @TargetApi(18)
-    private void genSurfaceTexture(@NonNull GL11 gl) {
-
-        int[] maxTextureSize = new int[1];
-        // get AmanithSVG surface dimensions
-        int surfaceWidth = AmanithSVG.svgtSurfaceWidth(svgSurface);
-        int surfaceHeight = AmanithSVG.svgtSurfaceHeight(svgSurface);
-
-        // get maximum texture size
-        gl.glGetIntegerv(GL10.GL_MAX_TEXTURE_SIZE, maxTextureSize, 0);
-
-        if ((surfaceWidth <= maxTextureSize[0]) && (surfaceHeight <= maxTextureSize[0])) {
-
-            // generate OpenGL ES texture
-            gl.glGenTextures(1, surfaceTexture, 0);
-            gl.glEnable(GL10.GL_TEXTURE_2D);
-            gl.glBindTexture(GL10.GL_TEXTURE_2D, surfaceTexture[0]);
-            gl.glTexParameteri(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_MIN_FILTER, GL10.GL_NEAREST);
-            gl.glTexParameteri(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_MAG_FILTER, GL10.GL_NEAREST);
-            gl.glTexParameteri(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_WRAP_S, GL10.GL_CLAMP_TO_EDGE);
-            gl.glTexParameteri(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_WRAP_T, GL10.GL_CLAMP_TO_EDGE);
-
-            if (bgraSupport) {
-                // get AmanithSVG surface pixels
-                java.nio.ByteBuffer surfacePixels = AmanithSVG.svgtSurfacePixels(svgSurface);
-                if (npotSupport) {
-                    // allocate texture memory and upload pixels
-                    gl.glTexImage2D(GL10.GL_TEXTURE_2D, 0, internalFormat, surfaceWidth, surfaceHeight, 0, externalFormat, GL10.GL_UNSIGNED_BYTE, surfacePixels);
-                }
-                else {
-                    // allocate texture memory
-                    gl.glTexImage2D(GL10.GL_TEXTURE_2D, 0, internalFormat, pow2Get(surfaceWidth), pow2Get(surfaceHeight), 0, externalFormat, GL10.GL_UNSIGNED_BYTE, null);
-                    // upload pixels
-                    gl.glTexSubImage2D(GL10.GL_TEXTURE_2D, 0, 0, 0, surfaceWidth, surfaceHeight, externalFormat, GL10.GL_UNSIGNED_BYTE, surfacePixels);
-                }
-            }
-            else {
-                if (swizzleSupport) {
-                    // get AmanithSVG surface pixels
-                    java.nio.ByteBuffer surfacePixels = AmanithSVG.svgtSurfacePixels(svgSurface);
-                    // set swizzle
-                    int[] bgraSwizzle = new int[] { GLES30.GL_BLUE, GLES30.GL_GREEN, GLES30.GL_RED, GL10.GL_ALPHA };
-                    gl.glTexParameteri(GL10.GL_TEXTURE_2D, GLES30.GL_TEXTURE_SWIZZLE_R, bgraSwizzle[0]);
-                    gl.glTexParameteri(GL10.GL_TEXTURE_2D, GLES30.GL_TEXTURE_SWIZZLE_G, bgraSwizzle[1]);
-                    gl.glTexParameteri(GL10.GL_TEXTURE_2D, GLES30.GL_TEXTURE_SWIZZLE_B, bgraSwizzle[2]);
-                    gl.glTexParameteri(GL10.GL_TEXTURE_2D, GLES30.GL_TEXTURE_SWIZZLE_A, bgraSwizzle[3]);
-
-                    if (npotSupport) {
-                        // allocate texture memory and upload pixels
-                        gl.glTexImage2D(GL10.GL_TEXTURE_2D, 0, GL10.GL_RGBA, surfaceWidth, surfaceHeight, 0, GL10.GL_RGBA, GL10.GL_UNSIGNED_BYTE, surfacePixels);
-                    }
-                    else {
-                        // allocate texture memory
-                        gl.glTexImage2D(GL10.GL_TEXTURE_2D, 0, GL10.GL_RGBA, pow2Get(surfaceWidth), pow2Get(surfaceHeight), 0, GL10.GL_RGBA, GL10.GL_UNSIGNED_BYTE, null);
-                        // upload pixels
-                        gl.glTexSubImage2D(GL10.GL_TEXTURE_2D, 0, 0, 0, surfaceWidth, surfaceHeight, GL10.GL_RGBA, GL10.GL_UNSIGNED_BYTE, surfacePixels);
-                    }
-                }
-                else {
-                    int[] rgbaPixels = new int[surfaceWidth * surfaceHeight];
-                    // copy AmanithSVG drawing surface content into the specified pixels buffer, taking care to swap red <--> blue channels
-                    if (AmanithSVG.svgtSurfaceCopy(svgSurface, rgbaPixels, true, false) == SVGTError.None) {
-                        if (npotSupport) {
-                            // allocate texture memory and upload pixels
-                            gl.glTexImage2D(GL10.GL_TEXTURE_2D, 0, GL10.GL_RGBA, surfaceWidth, surfaceHeight, 0, GL10.GL_RGBA, GL10.GL_UNSIGNED_BYTE, IntBuffer.wrap(rgbaPixels));
-                        }
-                        else {
-                            // allocate texture memory
-                            gl.glTexImage2D(GL10.GL_TEXTURE_2D, 0, GL10.GL_RGBA, pow2Get(surfaceWidth), pow2Get(surfaceHeight), 0, GL10.GL_RGBA, GL10.GL_UNSIGNED_BYTE, null);
-                            // upload pixels
-                            gl.glTexSubImage2D(GL10.GL_TEXTURE_2D, 0, 0, 0, surfaceWidth, surfaceHeight, GL10.GL_RGBA, GL10.GL_UNSIGNED_BYTE, IntBuffer.wrap(rgbaPixels));
-                        }
-                    }
-                }
-            }
-        }
+        patternTexture = svg.createTexture(gl, BACKGROUND_PATTERN_WIDTH, BACKGROUND_PATTERN_HEIGHT, pixels);
     }
 
     private void drawBackgroundTexture(@NonNull GL11 gl) {
@@ -378,28 +244,28 @@ public class SvgViewerView extends GLSurfaceView {
         gl.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         gl.glDisable(GL10.GL_BLEND);
         gl.glEnable(GL10.GL_TEXTURE_2D);
-        gl.glBindTexture(GL10.GL_TEXTURE_2D, patternTexture[0]);
+        gl.glBindTexture(GL10.GL_TEXTURE_2D, patternTexture);
         // simply put a quad, covering the whole view
         texturedRectangleDraw(gl, 0.0f, 0.0f, (float)getWidth(), (float)getHeight(), u, v);
     }
 
-    private void drawSurfaceTexture(GL11 gl) {
+    private void drawSurfaceTexture(@NonNull GL11 gl) {
 
         float u, v;
         // get AmanithSVG surface dimensions
-        float surfaceWidth = (float)AmanithSVG.svgtSurfaceWidth(svgSurface);
-        float surfaceHeight = (float)AmanithSVG.svgtSurfaceHeight(svgSurface);
+        float surfaceWidth = svgSurface.getWidth();
+        float surfaceHeight = svgSurface.getHeight();
         float tx = Math.round(surfaceTranslation[0]);
         float ty = Math.round(surfaceTranslation[1]);
         
-        if (npotSupport) {
+        if (svg.glSupportNPOT(gl)) {
             u = 1.0f;
             v = 1.0f;
         }
         else {
             // greater (or equal) power of two values
-            float texWidth = (float)pow2Get(AmanithSVG.svgtSurfaceWidth(svgSurface));
-            float texHeight = (float)pow2Get(AmanithSVG.svgtSurfaceHeight(svgSurface));
+            float texWidth = svgSurface.getWidthPow2();
+            float texHeight = svgSurface.getHeightPow2();
             u = (surfaceWidth - 0.5f) / texWidth;
             v = (surfaceHeight - 0.5f) / texHeight;
         }
@@ -408,7 +274,7 @@ public class SvgViewerView extends GLSurfaceView {
         gl.glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
         gl.glEnable(GL10.GL_BLEND);
         gl.glEnable(GL10.GL_TEXTURE_2D);
-        gl.glBindTexture(GL10.GL_TEXTURE_2D, surfaceTexture[0]);
+        gl.glBindTexture(GL10.GL_TEXTURE_2D, surfaceTexture);
         // simply put a quad
         texturedRectangleDraw(gl, tx, ty, surfaceWidth, surfaceHeight, u, v);
 
@@ -426,31 +292,6 @@ public class SvgViewerView extends GLSurfaceView {
                                  OpenGL ES
     *****************************************************************/
     private void glesInit(@NonNull GL11 gl) {
-
-        String extensions = gl.glGetString(GL10.GL_EXTENSIONS);
-
-        // get texture capabilities
-        if (extensions.contains("GL_APPLE_texture_format_BGRA8888") || extensions.contains("GL_EXT_bgra")) {
-            bgraSupport = true;
-            internalFormat = GL10.GL_RGBA;
-            externalFormat = GLES11Ext.GL_BGRA;
-        }
-        else
-        if (extensions.contains("GL_IMG_texture_format_BGRA8888") || extensions.contains("GL_EXT_texture_format_BGRA8888")) {
-            bgraSupport = true;
-            internalFormat = GLES11Ext.GL_BGRA;
-            externalFormat = GLES11Ext.GL_BGRA;
-        }
-        else {
-            bgraSupport = false;
-            internalFormat = GL10.GL_RGBA;
-            externalFormat = GL10.GL_RGBA;
-        }
-        npotSupport = (extensions.contains("GL_OES_texture_npot") ||
-                       extensions.contains("GL_APPLE_texture_2D_limited_npot") ||
-                       extensions.contains("GL_ARB_texture_non_power_of_two"));
-        swizzleSupport = (extensions.contains("GL_EXT_texture_swizzle") ||
-                          extensions.contains("GL_ARB_texture_swizzle"));
 
         // set basic OpenGL states
         gl.glDisable(GL10.GL_LIGHTING);
@@ -475,7 +316,7 @@ public class SvgViewerView extends GLSurfaceView {
         genPatternTexture(gl);
     }
 
-    private FloatBuffer glesFloatBuffer(@NonNull float[] arr) {
+    private @NonNull FloatBuffer glesFloatBuffer(@NonNull float[] arr) {
 
         ByteBuffer bb = ByteBuffer.allocateDirect(arr.length * 4);
         bb.order(ByteOrder.nativeOrder());
@@ -560,22 +401,52 @@ public class SvgViewerView extends GLSurfaceView {
     }
 
     /*****************************************************************
+                              AmanithSVG Log
+    *****************************************************************/
+    // clear AmanithSVG log buffer
+    private void logClear() {
+
+        if (svg.logClear(false) == SVGTError.None) {
+            // keep track of the SVG filename within AmanithSVG log buffer
+            svg.logInfo("Loading and parsing SVG file " + fullFileName);
+        }
+        else {
+            Log.w(LOG_TAG, "Error setting AmanithSVG log buffer\n");
+        }
+    }
+
+    // output AmanithSVG log content, using Android Studio Logcat window
+    private void logOutput(String headerMessage,
+                           boolean stopLogging) {
+
+        // get AmanithSVG log content as a string
+        String str = svg.getLog();
+
+        // avoid to print empty log
+        if (!str.isEmpty()) {
+            //Log.d(LOG_TAG, headerMessage);
+            Log.d(LOG_TAG, str);
+        }
+
+        if (stopLogging) {
+            // make sure AmanithSVG no longer uses a log buffer (i.e. disable logging)
+            if (svg.logClear(true) != SVGTError.None) {
+                Log.w(LOG_TAG, "Error stopping AmanithSVG logging\n");
+            }
+        }
+    }
+
+    /*****************************************************************
                                  Viewer
     *****************************************************************/
     private void viewerInit(GL11 gl) {
 
-        // get display metrics
-        DisplayMetrics metrics = getResources().getDisplayMetrics();
-
         // initialize OpenGL ES
         glesInit(gl);
 
-        // initialize AmanithSVG library
-        if (AmanithSVG.svgtInit(metrics.widthPixels, metrics.heightPixels, metrics.xdpi) == SVGTError.None) {
-            // load the SVG document
-            if (xmlText != null) {
-                svgDoc = loadSvg(xmlText);
-            }
+        // load the SVG document
+        if (fullFileName != null) {
+            svgDoc = svg.createDocumentFromFile(fullFileName);
         }
     }
 
@@ -584,14 +455,15 @@ public class SvgViewerView extends GLSurfaceView {
 
         // destroy the SVG document
         if (svgDoc != null) {
-            AmanithSVG.svgtDocDestroy(svgDoc);
+            svgDoc.dispose();
+            svgDoc = null;
         }
+
         // destroy the drawing surface
         if (svgSurface != null) {
-            AmanithSVG.svgtSurfaceDestroy(svgSurface);
+            svgSurface.dispose();
+            svgSurface = null;
         }
-        // deinitialize AmanithSVG library
-        AmanithSVG.svgtDone();
     }
 
     private void viewerDraw(@NonNull GL11 gl) {
@@ -606,35 +478,44 @@ public class SvgViewerView extends GLSurfaceView {
         }
     }
 
-    private void svgDraw(GL11 gl, int width, int height) {
+    private void svgDraw(@NonNull GL11 gl,
+                         int width,
+                         int height) {
 
         if (svgSurface != null) {
-            // if new desired dimensions are equal to current ones, simply exit
-            if ((width == AmanithSVG.svgtSurfaceWidth(svgSurface)) && (height == AmanithSVG.svgtSurfaceHeight(svgSurface))) {
+            // if new desired surface dimensions are equal to current ones, simply exit
+            // because it is useless to resize the surface (and destroy the GL texture)
+            // with the same dimensions and then draw the same svg on it
+            if ((width == svgSurface.getWidth()) && (height == svgSurface.getHeight())) {
+                // this is the case, for example, when phone/device is rotated from portrait to landscape (or viceversa)
                 return;
             }
-            // destroy current surface texture
-            if (surfaceTexture[0] != 0) {
-                gl.glDeleteTextures(1, surfaceTexture, 0);
-                surfaceTexture[0] = 0;
+            else {
+                // destroy current surface texture
+                if (surfaceTexture != 0) {
+                    gl.glDeleteTextures(1, new int[] { surfaceTexture }, 0);
+                    surfaceTexture = 0;
+                }
+                // resize AmanithSVG surface
+                svgSurface.resize(width, height);
             }
-            // resize AmanithSVG surface
-            AmanithSVG.svgtSurfaceResize(svgSurface, width, height);
         }
         else {
             // first time, we must create AmanithSVG surface
-            svgSurface = AmanithSVG.svgtSurfaceCreate(width, height);
-            // clear the drawing surface (full transparent white) at every svgtDocDraw call
-            AmanithSVG.svgtClearColor(1.0f, 1.0f, 1.0f, 0.0f);
-            AmanithSVG.svgtClearPerform(true);
+            svgSurface = svg.createSurface(width, height);
         }
-        // draw the SVG document
-        AmanithSVG.svgtDocDraw(svgDoc, svgSurface, SVGTRenderingQuality.Better);
-        // create surface texture
-        genSurfaceTexture(gl);
+
+        if ((svgDoc != null) && (svgSurface != null)) {
+            // clear the drawing surface and draw the SVG document
+            svgSurface.draw(svgDoc, SVGColor.Clear, SVGTRenderingQuality.Better);
+            // create surface texture
+            surfaceTexture = svg.createTexture(gl, svgSurface);
+        }
     }
 
-    private void viewerResize(GL11 gl, int width, int height) {
+    private void viewerResize(@NonNull GL11 gl,
+                              int width,
+                              int height) {
 
         // create / resize the AmanithSVG surface such that it is centered within the OpenGL view
         if (svgDoc != null) {
@@ -643,8 +524,8 @@ public class SvgViewerView extends GLSurfaceView {
             // create / resize AmanithSVG surface, then draw the loaded SVG document
             svgDraw(gl, srfRect.width(), srfRect.height());
             // center AmanithSVG surface within the OpenGL view
-            surfaceTranslation[0] = (float)(width - AmanithSVG.svgtSurfaceWidth(svgSurface)) * 0.5f;
-            surfaceTranslation[1] = (float)(height - AmanithSVG.svgtSurfaceHeight(svgSurface)) * 0.5f;
+            surfaceTranslation[0] = (width - svgSurface.getWidth()) * 0.5f;
+            surfaceTranslation[1] = (height - svgSurface.getHeight()) * 0.5f;
         }
 
         // set OpenGL viewport and projection
@@ -690,23 +571,41 @@ public class SvgViewerView extends GLSurfaceView {
         }
     }
 
+    // interface for customizing the eglCreateContext and eglDestroyContext calls
     private static class ContextFactory implements GLSurfaceView.EGLContextFactory {
 
-        public EGLContext createContext(EGL10 egl, EGLDisplay display, EGLConfig eglConfig) {
+        // the view that created this context factory
+        final private SvgViewerView view;
+
+        ContextFactory(SvgViewerView myView) {
+
+            // keep track of view
+            view = myView;
+        }
+
+        public EGLContext createContext(@NonNull EGL10 egl, EGLDisplay display, EGLConfig eglConfig) {
 
             int[] contextAttribs = {
+                // OpenGL ES 1.1
                 EGL_CONTEXT_CLIENT_VERSION, 1,
                 EGL10.EGL_NONE
             };
+
             return egl.eglCreateContext(display, eglConfig, EGL10.EGL_NO_CONTEXT, contextAttribs);
         }
 
-        public void destroyContext(EGL10 egl, EGLDisplay display, EGLContext context) {
+        public void destroyContext(@NonNull EGL10 egl, EGLDisplay display, EGLContext context) {
+
+            // destroy SVG resources allocated by the viewer
+            // NB: because GLSurfaceView.Renderer has no 'onSurfaceDestroyed' event, this is the only
+            // possible place to intercept rendering termination within the rendering thread
+            view.viewerDestroy();
 
             egl.eglDestroyContext(display, context);
         }
     }
 
+    // interface for choosing an EGLConfig configuration from a list of potential configurations
     private static class ConfigChooser implements GLSurfaceView.EGLConfigChooser {
 
         public ConfigChooser(int r, int g, int b, int a, int depth, int stencil, int samples) {
@@ -721,15 +620,12 @@ public class SvgViewerView extends GLSurfaceView {
             aaSamples = samples;
         }
 
-        private int findConfigAttrib(EGL10 egl, EGLDisplay display, EGLConfig config, int attribute, int defaultValue) {
+        private int findConfigAttrib(@NonNull EGL10 egl, EGLDisplay display, EGLConfig config, int attribute, int defaultValue) {
 
-            if (egl.eglGetConfigAttrib(display, config, attribute, tmpValue)) {
-                return tmpValue[0];
-            }
-            return defaultValue;
+            return egl.eglGetConfigAttrib(display, config, attribute, tmpValue) ? tmpValue[0] : defaultValue;
         }
 
-        private EGLConfig chooseConfigImpl(EGL10 egl, EGLDisplay display, EGLConfig[] configs) {
+        private EGLConfig chooseConfigImpl(EGL10 egl, EGLDisplay display, @NonNull EGLConfig[] configs) {
 
             EGLConfig result = null;
 
@@ -779,7 +675,7 @@ public class SvgViewerView extends GLSurfaceView {
         }
 
         // must be implemented by a GLSurfaceView.EGLConfigChooser
-        public EGLConfig chooseConfig(EGL10 egl, EGLDisplay display) {
+        public EGLConfig chooseConfig(@NonNull EGL10 egl, EGLDisplay display) {
 
             // get the number of minimally matching EGL configurations
             int[] num_config = new int[1];
@@ -796,17 +692,17 @@ public class SvgViewerView extends GLSurfaceView {
         }
 
         // subclasses can adjust these values
-        private int redSize;
-        private int greenSize;
-        private int blueSize;
-        private int alphaSize;
-        private int depthSize;
-        private int stencilSize;
+        private final int redSize;
+        private final int greenSize;
+        private final int blueSize;
+        private final int alphaSize;
+        private final int depthSize;
+        private final int stencilSize;
         private int aaSamples;
-        private int[] tmpValue = new int[1];
+        private final int[] tmpValue = new int[1];
         // we start with a minimum size of 4 bits for red/green/blue, but will perform actual matching in chooseConfig() below.
-        private static int EGL_OPENGL_ES_BIT = 1;
-        private static int[] configAttribs = {
+        private static final int EGL_OPENGL_ES_BIT = 1;
+        private static final int[] configAttribs = {
             EGL10.EGL_RED_SIZE, 4,
             EGL10.EGL_GREEN_SIZE, 4,
             EGL10.EGL_BLUE_SIZE, 4,
@@ -817,16 +713,22 @@ public class SvgViewerView extends GLSurfaceView {
 
     private static class SvgViewerViewRenderer implements GLSurfaceView.Renderer {
 
-        private SvgViewerView view;
+        // the view that created this renderer
+        final private SvgViewerView view;
 
-        SvgViewerViewRenderer(SvgViewerView myview) {
+        SvgViewerViewRenderer(SvgViewerView myView) {
 
             // keep track of view
-            view = myview;
+            view = myView;
         }
 
         public void onSurfaceCreated(GL10 gl, EGLConfig config) {
 
+            // clear AmanithSVG log (because we are going to keep track of possible errors
+            // and warnings arising from the parsing/rendering of selected file)
+            view.logClear();
+
+            // initialize OpenGL ES and load the SVG document
             view.viewerInit((GL11)gl);
         }
 
@@ -837,7 +739,13 @@ public class SvgViewerView extends GLSurfaceView {
 
         public void onSurfaceChanged(GL10 gl, int width, int height) {
 
+            // called when the surface changed size; in the detail, it is called after the surface
+            // is created and whenever the OpenGL ES surface size changes, so it is a good
+            // place to perform the real SVG draw and the relative GL texture creation
             view.viewerResize((GL11)gl, width, height);
+
+            // output AmanithSVG log content, using Android Studio Logcat window
+            view.logOutput("AmanithSVG log buffer", true);
         }
     }
 
@@ -860,22 +768,14 @@ public class SvgViewerView extends GLSurfaceView {
         msg += "Copyright 2013-" + year + " by Mazatech Srl. All Rights Reserved.\n\n";
         msg += "AmanithSVG driver informations:\n\n";
         // vendor
-        msg += "Vendor: " + AmanithSVG.svgtGetString(SVGT_VENDOR) + "\n";
+        msg += "Vendor: " + AmanithSVG.svgtGetString(SVGTStringID.Vendor) + "\n";
         // version
-        msg += "Version: " + AmanithSVG.svgtGetString(SVGT_VERSION) + "\n";
+        msg += "Version: " + AmanithSVG.svgtGetString(SVGTStringID.Version) + "\n";
         messageDialog("About AmanithSVG", msg);
     }
 
     @Override
-    protected void onDetachedFromWindow() {
-
-        // destroy SVG resources allocated by the viewer
-        viewerDestroy();
-        super.onDetachedFromWindow();
-    }
-
-    @Override
-    public boolean onTouchEvent(MotionEvent event) {
+    public boolean onTouchEvent(@NonNull MotionEvent event) {
 
         switch (event.getAction() & MotionEvent.ACTION_MASK) {
 
@@ -898,6 +798,7 @@ public class SvgViewerView extends GLSurfaceView {
 
     @Override
     public boolean performClick() {
+
         super.performClick();
         return true;
     }

@@ -1,5 +1,5 @@
 /****************************************************************************
-** Copyright (c) 2013-2019 Mazatech S.r.l.
+** Copyright (c) 2013-2023 Mazatech S.r.l.
 ** All rights reserved.
 ** 
 ** This file is part of AmanithSVG software, an SVG rendering library.
@@ -39,29 +39,106 @@
 // header shared between C code here, which executes Metal API commands, and .metal files, which uses these types as inputs to the shaders.
 #import "ShaderTypes.h"
 #include <math.h>
-#include <sys/utsname.h>
+#if (__IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_14_0)
+    // for the definition of UTTypeFolder and UTTypeSVG (iOS 14+)
+    #import <UniformTypeIdentifiers/UTCoreTypes.h>
+#endif
 
-// background pattern (dimensions and ARGB colors)
-#define BACKGROUND_PATTERN_WIDTH 32
-#define BACKGROUND_PATTERN_HEIGHT 32
-#define BACKGROUND_PATTERN_COL0 0xFF808080
-#define BACKGROUND_PATTERN_COL1 0xFFC0C0C0
+@implementation ViewerView
 
-@implementation View
+// ---------------------------------------------------------------
+//                        AmanithSVG log
+// ---------------------------------------------------------------
 
-/*****************************************************************
-                            OpenVG
-*****************************************************************/
+// append the message to the AmanithSVG log buffer
+- (void) logPrint :(const char*)message :(SVGTLogLevel)level {
+
+    (void)svgtLogPrint(message, level);
+}
+
+// append an informational message to the AmanithSVG log buffer
+- (void) logInfo :(const char*)message {
+
+    // push the message to AmanithSVG log buffer
+    [self logPrint :message :SVGT_LOG_LEVEL_INFO];
+}
+
+- (void) logInit :(const char*)fullFileName {
+
+    NSString* bundleIdentifier = [[NSBundle mainBundle] bundleIdentifier];
+
+    // NB: a value is always returned
+    logger = os_log_create([bundleIdentifier UTF8String], "AmanithSVG");
+    if ((logBuffer = calloc(AMANITHSVG_LOG_BUFFER_SIZE, sizeof(char))) != NULL) {
+        // enable all log levels
+        if (svgtLogBufferSet(logBuffer, AMANITHSVG_LOG_BUFFER_SIZE, SVGT_LOG_LEVEL_ALL) == SVGT_NO_ERROR) {
+            char fname[512] = { '\0' };
+            char msg[1024] = { '\0' };
+            // extract the filename only from the full path
+            extractFileName(fname, fullFileName, SVGT_TRUE);
+            // keep track of the SVG filename within AmanithSVG log buffer
+            sprintf(msg, "Loading and parsing SVG file %s", fname);
+            [self logInfo :msg];
+        }
+    }
+    else {
+        NSLog(@"Error allocating AmanithSVG log buffer");
+    }
+}
+
+- (void) logDestroy {
+
+    // make sure AmanithSVG no longer uses a log buffer (i.e. disable logging)
+    (void)svgtLogBufferSet(NULL, 0U, 0U);
+    // release allocated memory
+    if (logBuffer != NULL) {
+        free(logBuffer);
+        logBuffer = NULL;
+    }
+    // release logger object
+    logger = nil;
+}
+
+// output AmanithSVG log content, using the Apple unified logging system
+- (void) logOutput {
+
+    if (logBuffer != NULL) {
+
+        SVGTuint info[4] = { 0U, 0U, 0U, 0U };
+        SVGTErrorCode err = svgtLogBufferInfo(info);
+
+        // info[2] = current length, in characters (i.e. the total number of
+        // characters written, included the trailing '\0')
+        if ((err == SVGT_NO_ERROR) && (info[2] > 1U)) {
+            os_log_debug(logger, "%s", logBuffer);
+        }
+    }
+}
+
+// ---------------------------------------------------------------
+//                        File picker
+// ---------------------------------------------------------------
 - (void) fileChooseDialog {
 
     if (!selectingFile) {
 
         selectingFile = SVGT_TRUE;
 
-        // open only SVG files
+        // open SVG files and folders only
+    #if (__IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_14_0)
         NSArray* types = @[(NSString*)kUTTypeFolder,(NSString*)kUTTypeScalableVectorGraphics];
         UIDocumentPickerViewController* documentPicker = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:types inMode:UIDocumentPickerModeImport];
+    #else
+        // iOS 14+
+        NSArray<UTType*>* types = @[UTTypeFolder, UTTypeSVG];
+        UIDocumentPickerViewController* documentPicker = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:types asCopy:TRUE];
+    #endif
         documentPicker.delegate = self;
+
+    #if (__IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_11_0)
+        // select just one document at a time (iOS 11+)
+        documentPicker.allowsMultipleSelection = FALSE;
+    #endif
 
         // find top view controller
         UIViewController* topViewController = [[[[UIApplication sharedApplication] delegate] window] rootViewController];
@@ -75,24 +152,58 @@
     }
 }
 
-- (void) didMoveToSuperview {
+// load and draw the choosen SVG file
+- (void) pickedDocumentLoad :(NSURL *)url {
 
-    // select SVG file
-    [self fileChooseDialog];
+    // get SVG file content, as a C string
+    NSString* xmlStr = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:nil];
+    const char* fileName = [[url path] UTF8String];
+
+    // initialize AmanithSVG log (in order to keep track of possible errors
+    // and warnings arising from the parsing/rendering of selected file)
+    [self logInit:fileName];
+
+    // destroy a previously loaded document, if any
+    if (svgDoc != SVGT_INVALID_HANDLE) {
+        svgtDocDestroy(svgDoc);
+    }
+    // load a new SVG file
+    if ((svgDoc = svgtDocCreate([xmlStr UTF8String])) != SVGT_INVALID_HANDLE) {
+        // resize AmanithSVG surface, then draw the loaded SVG document
+        [self sceneResize :viewportSize.x :viewportSize.y];
+        // output AmanithSVG log content, using the Apple unified logging system
+        [self logOutput];
+    }
+
+    // release AmanithSVG log buffer
+    [self logDestroy];
 }
 
+#if (__IPHONE_OS_VERSION_MIN_REQUIRED <= __IPHONE_11_0)
+// deprecated, use the documentPicker:didPickDocumentsAtURLs: method instead
 - (void) documentPicker :(UIDocumentPickerViewController *)controller didPickDocumentAtURL:(NSURL *)url {
 
     if (controller.documentPickerMode == UIDocumentPickerModeImport) {
-        // get SVG file content, as a C string
-        NSString* xmlStr = [NSString stringWithContentsOfURL:url encoding:NSUTF8StringEncoding error:nil];
-        const char* xml = [xmlStr UTF8String];
-        // create the SVG document
-        if ([self viewerInit :xml]) {
-            // resize AmanithSVG surface, then draw the loaded SVG document
-            [self sceneResize :viewportSize.x :viewportSize.y];
-        }
+        // load and draw the choosen SVG file
+        [self pickedDocumentLoad :url];
     }
+
+    // now we can select another file, if we desire
+    selectingFile = SVGT_FALSE;
+}
+#endif
+
+- (void) documentPicker: (UIDocumentPickerViewController *)controller didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls {
+
+#if (__IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_14_0)
+    // documentPickerMode is deprecated from iOS 14
+    if (controller.documentPickerMode == UIDocumentPickerModeImport) {
+#endif
+        // load and draw the choosen SVG file
+        [self pickedDocumentLoad :urls[0]];
+#if (__IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_14_0)
+    }
+#endif
 
     // now we can select another file, if we desire
     selectingFile = SVGT_FALSE;
@@ -104,219 +215,11 @@
     selectingFile = SVGT_FALSE;
 }
 
-// get screen dimensions, in pixels
-- (SimpleRect) screenDimensionsGet {
+// ---------------------------------------------------------------
+//                          MTKView
+// ---------------------------------------------------------------
 
-    CGRect screenRect = [[UIScreen mainScreen] nativeBounds];
-    SimpleRect result = {
-        screenRect.size.width,
-        screenRect.size.height
-    };
-
-    return result;
-}
-
-// get screen dpi
-- (SVGTfloat) screenDpiGet {
-
-    struct utsname systemInfo;
-    uname(&systemInfo);
-    NSString* code = [NSString stringWithCString:systemInfo.machine encoding:NSUTF8StringEncoding];
-    // taken from http://github.com/lmirosevic/GBDeviceInfo/blob/master/GBDeviceInfo/GBDeviceInfo_iOS.m
-    NSDictionary* deviceNamesByCode = @{
-        // 1st Gen
-        @"iPhone1,1" :@163,
-        // 3G
-        @"iPhone1,2" :@163,
-        // 3GS
-        @"iPhone2,1" :@163,
-        // 4
-        @"iPhone3,1" :@326,
-        @"iPhone3,2" :@326,
-        @"iPhone3,3" :@326,
-        // 4S
-        @"iPhone4,1" :@326,
-        // 5
-        @"iPhone5,1" :@326,
-        @"iPhone5,2" :@326,
-        // 5c
-        @"iPhone5,3" :@326,
-        @"iPhone5,4" :@326,
-        // 5s
-        @"iPhone6,1" :@326,
-        @"iPhone6,2" :@326,
-        // 6 Plus
-        @"iPhone7,1" :@401,
-        // 6
-        @"iPhone7,2" :@326,
-        // 6s
-        @"iPhone8,1" :@326,
-        // 6s Plus
-        @"iPhone8,2" :@401,
-        // SE
-        @"iPhone8,4" :@326,
-        // 7
-        @"iPhone9,1" :@326,
-        @"iPhone9,3" :@326,
-        // 7 Plus
-        @"iPhone9,2" :@401,
-        @"iPhone9,4" :@401,
-        // 8
-        @"iPhone10,1" :@326,
-        @"iPhone10,4" :@326,
-        // 8 Plus
-        @"iPhone10,2" :@401,
-        @"iPhone10,5" :@401,
-        // X
-        @"iPhone10,3" :@458,
-        @"iPhone10,6" :@458,
-        // XR
-        @"iPhone11,8" :@326,
-        // XS
-        @"iPhone11,2" :@458,
-        // XS Max
-        @"iPhone11,4" :@458,
-        @"iPhone11,6" :@458,
-        // 1
-        @"iPad1,1"   :@132,
-        // 2
-        @"iPad2,1"   :@132,
-        @"iPad2,2"   :@132,
-        @"iPad2,3"   :@132,
-        @"iPad2,4"   :@132,
-        // Mini
-        @"iPad2,5"   :@163,
-        @"iPad2,6"   :@163,
-        @"iPad2,7"   :@163,
-        // 3
-        @"iPad3,1"   :@264,
-        @"iPad3,2"   :@264,
-        @"iPad3,3"   :@264,
-        // 4
-        @"iPad3,4"   :@264,
-        @"iPad3,5"   :@264,
-        @"iPad3,6"   :@264,
-        // Air
-        @"iPad4,1"   :@264,
-        @"iPad4,2"   :@264,
-        @"iPad4,3"   :@264,
-        // Mini 2
-        @"iPad4,4"   :@326,
-        @"iPad4,5"   :@326,
-        @"iPad4,6"   :@326,
-        // Mini 3
-        @"iPad4,7"   :@326,
-        @"iPad4,8"   :@326,
-        @"iPad4,9"   :@326,
-        // Mini 4
-        @"iPad5,1"   :@326,
-        @"iPad5,2"   :@326,
-        // Air 2
-        @"iPad5,3"   :@264,
-        @"iPad5,4"   :@264,
-        // Pro 12.9-inch
-        @"iPad6,7"   :@264,
-        @"iPad6,8"   :@264,
-        // Pro 9.7-inch
-        @"iPad6,3"   :@264,
-        @"iPad6,4"   :@264,
-        // iPad 5th Gen, 2017
-        @"iPad6,11"  :@264,
-        @"iPad6,12"  :@264,
-        // Pro 12.9-inch, 2017
-        @"iPad7,1"   :@264,
-        @"iPad7,2"   :@264,
-        // Pro 10.5-inch, 2017
-        @"iPad7,3"   :@264,
-        @"iPad7,4"   :@264,
-        // iPad 6th Gen, 2018
-        @"iPad7,5"   :@264,
-        @"iPad7,6"   :@264,
-        // iPad Pro 3rd Gen 11-inch, 2018
-        @"iPad8,1"   :@264,
-        @"iPad8,3"   :@264,
-        // iPad Pro 3rd Gen 11-inch 1TB, 2018
-        @"iPad8,2"   :@264,
-        @"iPad8,4"   :@264,
-        // iPad Pro 3rd Gen 12.9-inch, 2018
-        @"iPad8,5"   :@264,
-        @"iPad8,7"   :@264,
-        // iPad Pro 3rd Gen 12.9-inch 1TB, 2018
-        @"iPad8,6"   :@264,
-        @"iPad8,8"   :@264,
-        // 1st Gen
-        @"iPod1,1"   :@163,
-        // 2nd Gen
-        @"iPod2,1"   :@163,
-        // 3rd Gen
-        @"iPod3,1"   :@163,
-        // 4th Gen
-        @"iPod4,1"   :@326,
-        // 5th Gen
-        @"iPod5,1"   :@326,
-        // 6th Gen
-        @"iPod7,1"   :@326,
-        // 7th Gen
-        @"iPod9,1"   :@326
-    };
-
-    SVGTfloat result;
-    NSInteger dpi = [[deviceNamesByCode objectForKey:code] integerValue];
-
-    if (!dpi) {
-        SVGTfloat scale = 1.0f;
-        if ([[UIScreen mainScreen] respondsToSelector:@selector(scale)]) {
-            scale = [[UIScreen mainScreen] scale];
-        }
-        // dpi estimation (not accurate)
-        if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
-            result = 132.0f * scale;
-        }
-        else
-        if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPhone) {
-            result = 163.0f * scale;
-        }
-        else {
-            result = 160.0f * scale;
-        }
-    }
-    else {
-        result = (SVGTfloat)dpi;
-    }
-
-    return result;
-}
-
-- (void) texturedRectangleDraw :(id<MTLRenderCommandEncoder>)commandEncoder :(SVGTfloat)x :(SVGTfloat)y :(SVGTfloat)width :(SVGTfloat)height :(SVGTfloat)u :(SVGTfloat)v {
-
-    // triangle strip
-    const TexturedVertex rectVertices[4] = {
-        // pixel positions           texture coordinates
-        { { x, y },                  { 0.0f, 0.0f } },
-        { { x + width, y },          { u, 0.0f } },
-        { { x, y + height },         { 0.0f, v } },
-        { { x + width, y + height }, { u, v } }
-    };
-    [commandEncoder setVertexBytes:rectVertices length:sizeof(rectVertices) atIndex:0];
-    [commandEncoder setVertexBytes:&viewportSize length:sizeof(viewportSize) atIndex:1];
-    [commandEncoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
-}
-
-- (void) rectangleDraw :(id<MTLRenderCommandEncoder>)commandEncoder :(SVGTfloat)x :(SVGTfloat)y :(SVGTfloat)width :(SVGTfloat)height {
-
-    // triangle strip
-    const GeometricVertex rectVertices[4] = {
-        // pixel positions
-        { { x, y } },
-        { { x + width, y } },
-        { { x, y + height } },
-        { { x + width, y + height } }
-    };
-    [commandEncoder setVertexBytes:rectVertices length:sizeof(rectVertices) atIndex:0];
-    [commandEncoder setVertexBytes:&viewportSize length:sizeof(viewportSize) atIndex:1];
-    [commandEncoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
-}
-
+// general view setup (Metal objects and gestures)
 - (void) initView {
 
     __autoreleasing NSError* error = nil;
@@ -385,7 +288,8 @@
     surfaceTranslation[1] = 0.0f;
 }
 
-// called whenever view changes orientation or layout is changed; NB: this method is NOT called when the view/window is first opened
+// called whenever view changes orientation or layout is changed
+// NB: this method is NOT called when the view/window is first opened
 - (void) mtkView:(nonnull MTKView *)view drawableSizeWillChange:(CGSize)size {
 
     (void)view;
@@ -405,54 +309,9 @@
     [self sceneDraw];
 }
 
-- (void) gesturesSetup {
-
-    // pan gesture
-    UIPanGestureRecognizer* panRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(move:)];
-    [panRecognizer setMinimumNumberOfTouches:1];
-    [panRecognizer setMaximumNumberOfTouches:1];
-    [panRecognizer setDelegate:self];
-    [self addGestureRecognizer:panRecognizer];
-
-    // tap gesture
-    UITapGestureRecognizer* tapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(doubleTap:)];
-    [tapRecognizer setNumberOfTapsRequired:2];
-    [tapRecognizer setDelegate:self];
-    [self addGestureRecognizer:tapRecognizer];
-}
-
-- (void) move :(id)sender {
-
-    CGPoint movedPoint = [(UIPanGestureRecognizer*)sender locationInView:self];
-    movedPoint.x *= [[UIScreen mainScreen] nativeScale];
-    movedPoint.y *= [[UIScreen mainScreen] nativeScale];
- 
-    if ([(UIPanGestureRecognizer*)sender state] == UIGestureRecognizerStateBegan) {
-        // keep track of touch position
-        oldTouchX = movedPoint.x;
-        oldTouchY = movedPoint.y;
-    }
-    else
-    if ([(UIPanGestureRecognizer*)sender state] == UIGestureRecognizerStateEnded) {
-        // nothing to do
-    }
-    else {
-        // update translation
-        [self deltaTranslation :(movedPoint.x - oldTouchX) :(movedPoint.y - oldTouchY)];
-        oldTouchX = movedPoint.x;
-        oldTouchY = movedPoint.y;
-    }
-}
-
-- (void) doubleTap :(id)sender {
-
-    if ([(UITapGestureRecognizer*)sender state] == UIGestureRecognizerStateEnded) {
-        // select SVG file
-        [self fileChooseDialog];
-    }
-}
-
-// textures setup
+// ---------------------------------------------------------------
+//                         Metal textures
+// ---------------------------------------------------------------
 - (void) genPatternTexture {
 
     SVGTuint col0 = BACKGROUND_PATTERN_COL0;
@@ -489,7 +348,7 @@
         patternTexture = [[self device] newTextureWithDescriptor:textureDescriptor];
         // upload pixels
         [patternTexture replaceRegion:region mipmapLevel:0 withBytes:pixels bytesPerRow:BACKGROUND_PATTERN_WIDTH*4];
-
+        // release temporary buffer
         free(pixels);
     }
 }
@@ -552,28 +411,105 @@
     [self rectangleDraw :commandEncoder :tx + surfaceWidth - 2.0f :ty :2.0f :surfaceHeight];
 }
 
-- (void) deleteTextures {
+- (void) texturedRectangleDraw :(id<MTLRenderCommandEncoder>)commandEncoder :(SVGTfloat)x :(SVGTfloat)y :(SVGTfloat)width :(SVGTfloat)height :(SVGTfloat)u :(SVGTfloat)v {
 
-    if (patternTexture != nil) {
-        [patternTexture setPurgeableState:MTLPurgeableStateEmpty];
-        [patternTexture release];
-        patternTexture = nil;
+    // triangle strip
+    const TexturedVertex rectVertices[4] = {
+        // pixel positions           texture coordinates
+        { { x, y },                  { 0.0f, 0.0f } },
+        { { x + width, y },          { u, 0.0f } },
+        { { x, y + height },         { 0.0f, v } },
+        { { x + width, y + height }, { u, v } }
+    };
+    [commandEncoder setVertexBytes:rectVertices length:sizeof(rectVertices) atIndex:0];
+    [commandEncoder setVertexBytes:&viewportSize length:sizeof(viewportSize) atIndex:1];
+    [commandEncoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+}
+
+- (void) rectangleDraw :(id<MTLRenderCommandEncoder>)commandEncoder :(SVGTfloat)x :(SVGTfloat)y :(SVGTfloat)width :(SVGTfloat)height {
+
+    // triangle strip
+    const GeometricVertex rectVertices[4] = {
+        // pixel positions
+        { { x, y } },
+        { { x + width, y } },
+        { { x, y + height } },
+        { { x + width, y + height } }
+    };
+    [commandEncoder setVertexBytes:rectVertices length:sizeof(rectVertices) atIndex:0];
+    [commandEncoder setVertexBytes:&viewportSize length:sizeof(viewportSize) atIndex:1];
+    [commandEncoder drawPrimitives:MTLPrimitiveTypeTriangleStrip vertexStart:0 vertexCount:4];
+}
+
+// ---------------------------------------------------------------
+//                       Gesture handlers
+// ---------------------------------------------------------------
+
+// setup gesture handlers
+- (void) gesturesSetup {
+
+    // pan gesture
+    UIPanGestureRecognizer* panRecognizer = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(move:)];
+    [panRecognizer setMinimumNumberOfTouches:1];
+    [panRecognizer setMaximumNumberOfTouches:1];
+    [panRecognizer setDelegate:self];
+    [self addGestureRecognizer:panRecognizer];
+
+    // tap gesture
+    UITapGestureRecognizer* tapRecognizer = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(doubleTap:)];
+    [tapRecognizer setNumberOfTapsRequired:2];
+    [tapRecognizer setDelegate:self];
+    [self addGestureRecognizer:tapRecognizer];
+}
+
+- (void) deltaTranslation :(SVGTfloat)deltaX :(SVGTfloat)deltaY {
+
+    surfaceTranslation[0] += deltaX;
+    surfaceTranslation[1] -= deltaY;
+}
+
+- (void) move :(id)sender {
+
+    CGPoint movedPoint = [(UIPanGestureRecognizer*)sender locationInView:self];
+    movedPoint.x *= [[UIScreen mainScreen] nativeScale];
+    movedPoint.y *= [[UIScreen mainScreen] nativeScale];
+ 
+    if ([(UIPanGestureRecognizer*)sender state] == UIGestureRecognizerStateBegan) {
+        // keep track of touch position
+        oldTouchX = movedPoint.x;
+        oldTouchY = movedPoint.y;
     }
-    if (surfaceTexture != nil) {
-        [surfaceTexture setPurgeableState:MTLPurgeableStateEmpty];
-        [surfaceTexture release];
-        surfaceTexture = nil;
+    else
+    if ([(UIPanGestureRecognizer*)sender state] == UIGestureRecognizerStateEnded) {
+        // nothing to do
+    }
+    else {
+        // update translation
+        [self deltaTranslation :(movedPoint.x - oldTouchX) :(movedPoint.y - oldTouchY)];
+        oldTouchX = movedPoint.x;
+        oldTouchY = movedPoint.y;
     }
 }
+
+- (void) doubleTap :(id)sender {
+
+    if ([(UITapGestureRecognizer*)sender state] == UIGestureRecognizerStateEnded) {
+        // select SVG file
+        [self fileChooseDialog];
+    }
+}
+
+// ---------------------------------------------------------------
+//                          SVG viewer
+// ---------------------------------------------------------------
 
 // resize AmanithSVG surface to the given dimensions, then draw the loaded SVG document
 - (void) svgDraw :(SVGTuint)width :(SVGTuint)height {
 
     if (svgSurface != SVGT_INVALID_HANDLE) {
-        // destroy current surface texture
+        // release current surface texture
         if (surfaceTexture != nil) {
             [surfaceTexture setPurgeableState:MTLPurgeableStateEmpty];
-            [surfaceTexture release];
             surfaceTexture = nil;
         }
         // resize AmanithSVG surface
@@ -582,17 +518,16 @@
     else {
         // first time, we must create AmanithSVG surface
         svgSurface = svgtSurfaceCreate(width, height);
-        // clear the drawing surface (full transparent white) at every svgtDocDraw call
-        svgtClearColor(1.0f, 1.0f, 1.0f, 0.0f);
-        svgtClearPerform(SVGT_TRUE);
     }
+    // clear the drawing surface (full transparent white)
+    svgtSurfaceClear(svgSurface, 1.0f, 1.0f, 1.0f, 0.0f);
     // draw the SVG document (upon AmanithSVG surface)
     svgtDocDraw(svgDoc, svgSurface, SVGT_RENDERING_QUALITY_BETTER);
     // create surface texture
     [self genSurfaceTexture];
 }
 
-// viewer functions
+// draw the scene: background pattern and AmanithSVG surface (texture)
 - (void) sceneDraw {
 
     id<MTLCommandBuffer> commandBuffer = [mtlCommandQueue commandBuffer];
@@ -616,70 +551,21 @@
 
     // finalize rendering and push the command buffer to the GPU
     [commandBuffer commit];
+    [commandBuffer waitUntilCompleted];
 }
 
+// resize AmanithSVG surface and re-draw the loaded SVG document
 - (void) sceneResize :(SVGTuint)width :(SVGTuint)height {
 
-    // create / resize the AmanithSVG surface such that it is centered within the OpenGL view
     if (svgDoc != SVGT_INVALID_HANDLE) {
         // calculate AmanithSVG surface dimensions
         SimpleRect srfRect = surfaceDimensionsCalc(svgDoc, width, height);
         // create / resize AmanithSVG surface, then draw the loaded SVG document
         [self svgDraw :srfRect.width :srfRect.height];
-        // center AmanithSVG surface within the OpenGL view
+        // center AmanithSVG surface within the Metal view
         surfaceTranslation[0] = (SVGTfloat)((SVGTint)width - (SVGTint)svgtSurfaceWidth(svgSurface)) * 0.5f;
         surfaceTranslation[1] = (SVGTfloat)((SVGTint)height - (SVGTint)svgtSurfaceHeight(svgSurface)) * 0.5f;
     }
-}
-
-- (void) dealloc {
-
-    // destroy used textures
-    [self deleteTextures];
-    // destroy Metal command queue
-    [mtlCommandQueue release];
-    mtlCommandQueue = nil;
-
-    // destroy SVG resources allocated by the viewer
-    [self viewerDestroy];
-    [super dealloc];
-}
-
-- (void) deltaTranslation :(SVGTfloat)deltaX :(SVGTfloat)deltaY {
-
-    surfaceTranslation[0] += deltaX;
-    surfaceTranslation[1] -= deltaY;
-}
-
-- (SVGTboolean) viewerInit :(const char*)xmlText {
-
-    SVGTboolean ok = SVGT_FALSE;
-    // get screen dimensions
-    SimpleRect screenRect = [self screenDimensionsGet];
-
-    // initialize AmanithSVG library (actually just the first call performs the real initialization)
-    if (svgtInit(screenRect.width, screenRect.height, [self screenDpiGet]) == SVGT_NO_ERROR) {
-        // destroy a previously loaded document, if any
-        if (svgDoc != SVGT_INVALID_HANDLE) {
-            svgtDocDestroy(svgDoc);
-        }
-        // load a new SVG file
-        svgDoc = svgtDocCreate(xmlText);
-        ok = (svgDoc != SVGT_INVALID_HANDLE) ? SVGT_TRUE : SVGT_FALSE;
-    }
-    // we have finished
-    return ok;
-}
-
-// destroy SVG resources allocated by the viewer
-- (void) viewerDestroy {
-
-    // destroy the SVG document
-    svgtDocDestroy(svgDoc);
-    // destroy the drawing surface
-    svgtSurfaceDestroy(svgSurface);
-    // deinitialize AmanithSVG library
-    svgtDone();
 }
 
 @end

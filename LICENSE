@@ -1,71 +1,304 @@
-Mazatech Software Evaluation Agreement 
--------------------------------------- 
+Mazatech Software License Agreement
+-----------------------------------
 
-This Evaluation Agreement (the "Agreement") is entered into by and between Mazatech S.r.l ("Licensor") with its principal place of business at Via Livatino, 2, 47020 Longiano (FC), Italy, and YOU ("Licensee", individual or entity), hereafter collectively referred to as the "Parties". 
+This Evaluation Agreement (the "Agreement") is entered into by and between Mazatech S.r.l (the "Licensor"), a company organized and existing under the laws of Italy, having its registered office at Via Livatino, 2 - 47020 Longiano (FC), Italy, and YOU (the "Licensee", individual or entity), hereafter individually referred as a "Party" or collectively as the "Parties".
 
-The Parties agree that: 
-
-
-1. Licensor will disclose the technology described in this Section 1, including software, related documentation and information, to Licensee under the Agreement (the "Technology") as follows: 
-
-Technology Description: 
-
-  - AmanithSVG, is a middleware for reading and rendering SVG files, in binary code 
-
-During the term of the Agreement, Licensor may, at its sole option, provide Licensee with updates or error corrections to the Technology (collectively "Technology Updates"). If Licensor supplies Technology Updates to Licensee, the Technology Updates will be considered part of the Technology, and subject to the terms of this Agreement. 
-
-  ************************************************************************ 
-  * Please read this Agreement carefully before accessing the Technology * 
-  * media, electronically downloading, installing, starting or otherwise * 
-  * using the Technology. Any of the above actions indicate that you     * 
-  * have read all of the terms and conditions of this Agreement,         * 
-  * understand them, and agree to be legally bound to those terms and    * 
-  * conditions. Should you not accept the terms and conditions of this   * 
-  * Agreement, then please do not access or otherwise use the Technology,* 
-  * cancel the installation or downloading process, or destroy or return * 
-  * the Technology to Licensor.                                          * 
-  ************************************************************************ 
+BACKGROUND
+    - Whereas Licensor is the only owner of the software named AmanithSVG Lite (the "Software"), whose specifications are defined in the Documentation;
+    - Whereas Licensor has registered the Software at "SOCIETÀ ITALIANA DEGLI AUTORI ED EDITORI (SIAE) - REGISTRO PUBBLICO SPECIALE PER I PROGRAMMI PER ELABORATORE" on the date Jan 03, 2022, with progressive number D000016911 and registration number D000015958;
+    - The Licensee is not required to accept this License since he has not signed it. However, without accepting this License, the Licensee is not granted permission to use or distribute the Software or any works derived from it. It's important to note that these actions are legally prohibited unless the Licensee accept this License. Therefore, by using or distributing the Software (or any works based on it), the Licensee is indicating his acceptance of this License and all its terms and conditions regarding copying, distributing, or using the Software or any works derived from it.
 
 
-2. Licensor grants to Licensee a non-exclusive, non-transferable, royalty-free, fully paid-up, worldwide license to internally reproduce and use the Technology, for purposes of EVALUATION ONLY.
-This license does not include the right to alter, modify, distribute, reverse 
-engineer, disassemble the Technology, or the right to derive any source code from the Technology (even for the evaluation purpose).
-This license does not include the right to obtain support, maintenance, 
-training, integration or other services. 
+AGREEMENT
+NOW THEREFORE IN CONSIDERATION of the mutual agreements in this Agreement and other good and valuable consideration (the receipt and adequacy of which are acknowledged), Licensor and Licensee agree as follows:
 
+--------------
+1. Definitions
+--------------
+"Act of Insolvency" means a Party:
+    a) becomes the subject of a voluntary or involuntary petition in bankruptcy or any proceeding relating to insolvency, receivership, liquidation or composition for the benefit of creditors, if that petition or proceeding is not dismissed within sixty (60) days after the filing;
+    b) suspends the operation of its present business or liquidates its business assets; or
+    c) generally fails to pay its debts as such debts become due or admit in writing its inability to pay its debts.
 
-3. Licensor warrants that it has the right to license the Technology to Licensee. 
-Except as set forth herein, the Technology is provided "AS IS", and all 
-representations and warranties, express or implied, including fitness for a particular purpose and merchantability are hereby disclaimed.
-Licensor does not warrant the Technology will meet Licensee's requirements, nor that the operation of the Technology will be uninterrupted or error free, nor that any errors will be corrected.
-Licensee acknowledges that Licensor has no control over Licensee's use or exploitation of the Technology. Licensee therefore agrees to indemnify and hold Licensor harmless against any costs, claims, demands, expenses and liabilities of whatsoever nature by any third party arising from such use or exploitation. In no event shall Licensor be liable for any direct, indirect, special, incidental or consequential damages arising out of the use or inability to use the Technology, even if Licensor have been advised of the likelihood of such damages occurring.
-Licensor shall not be liable for any loss, damages or costs, arising out of, but not limited to, lost profits or revenue, loss of use of the Technology or the media, loss of data or equipment, the costs of recovering the Technology, the media, data or equipment, the cost of substitute Technology, media, data or equipment or claims by third parties, or other similar costs. 
-Licensee does not acquire any rights in and to the Technology, except for the limited right to use the Technology as described in the Agreement. 
+"Affiliates" means, with respect to a Party, any Person at any time controlling, controlled by or under common control with, such Party. For the purposes of this definition, the terms "controlling", "controlled" and "control" as used with respect to any Person, shall mean the direct or indirect ability or power to direct or cause the direction of management policies of such Person or otherwise direct the affairs of such Person, whether through ownership of equity participation, voting securities, beneficial interest, by contract or otherwise.
 
+"Computer Program" means a collection of instructions that performs a specific task when executed by a computer.
 
-4. This Agreement is valid from the first delivery of the Technology to Licensee and remains in effect for 2 (two) years, unless terminated under the provisions of this Agreement. Either party may terminate this Agreement by giving the other party a 6 (six) month's written notice.
-Any license provided under this Agreement may be terminated immediately by one party, if the other party, not being a company, commits any act of bankruptcy or compounds or makes any arrangement with its creditors, or if that other party is a company, is wound up, whether compulsorily or voluntarily or an Administrative Receiver, Receiver, Manager or Administrator is appointed over all or part of its property. If any license granted under this Agreement expires or is terminated in accordance with the terms of this Agreement, Licensee shall forthwith
+"Defect" is any mistake, problem, error, malfunction or deficiency which causes an incorrect or inadequate functioning or non-functioning of the Software or its operation with the Licensee's Product(s), or any deviation from the Documentation, or other requirements set forth under this Agreement for the Software.
 
-    i) Cease using the Technology, and
+"Defect Correction" means any modifications made by Licensor to the Software, in order to bring the Software into compliance with the Documentation. All Defect Corrections provided hereunder by Licensor to Licensee shall be considered Software and - if and when made available to the Licensee - will be subject to all the terms for Software under this Agreement, including the license grant to the Licensee.
 
-   ii) Destroy all copies of the Technology. This requirement applies to copies of the Technology in all forms, partial and complete, on all types of media and computer memory, and whether or not modified and merged into other materials. 
+"Developer Tool" means any application programming interface, software development kit, software libraries, code samples, routines, data structures, object classes, variables, protocols, and other resources that can be used for the purpose of developing, or being incorporated or integrated into, other software.
 
+"Documentation" means publications and documentation relating to the Software including specifications, references, user manuals, installation and technical guides, provided by Licensor to Licensee on http://www.amanithsvg.com website and in all documents distributed with the Software.
 
-5. All notices required or permitted under this Agreement will be in writing, will reference this Agreement and will be deemed delivered when: (a) delivered personally; (b) when sent by confirmed facsimile; (c) upon receipt or refusal of receipt after having been sent by registered or certified mail, return receipt requested, postage prepaid; or (d) with a commercial overnight carrier specifying next day delivery, upon written verification of receipt or refusal of receipt. All notices will be sent to the addresses set forth below to or such other address as may be designated by a party by giving written notice to the other party pursuant to this Section: 
+"End User" means the ultimate purchaser or user who has granted the license to directly use the Licensee's Product(s) but not to resale, re-marketing or further distribution.
 
-If to Mazatech: 
+"Intellectual Property" means all intellectual and industrial property, regardless of form and whether or not recorded and includes without limitation all works in which copyright subsists or may subsist, such as computer programs and code, databases and compilations of data, designs and documentation, industrial designs, trade secrets, confidential information, ideas and know-how, trademarks, trade names, discoveries and inventions, and integrated circuit topographies.
 
-    Mazatech S.r.l. 
-    Attn: Matteo Muratori 
-    Via Livatino, 2 
-    47020 - Longiano (FC)
-    Italy 
+"Intellectual Property Rights" means all rights in any Intellectual Property including without limitation all rights in trademarks and trade names, discoveries, inventions, patents, copyrights, industrial designs, integrated circuit topographies, trade secrets, confidential information, ideas and know-how, and applications and registrations for the foregoing, and other proprietary rights.
 
+"Licensee's Product(s)" means one or more Target Application(s) made by or for the Licensee, or a Licensee's Affiliate, that it can be used by End User(s).
 
-6. In the event any provision or part thereof of this Agreement is held to be invalid or unenforceable, the remaining provisions and parts of this Agreement shall remain in full force and effect. 
-The waiver by either party of any default or breach of this Agreement shall not constitute a waiver of any other or subsequent default or breach. 
-Licensee will not export, directly or indirectly, the Technology or any direct product thereof or any technical data relating to the Technology without complying with all regulations relating to such export issued by the local government. 
-Any public announcement by either party regarding this Agreement or uses of the Technology licensed under this Agreement by Licensee needs to be approved by both Parties in advance.
-This Agreement and all matters arising out or relating to this Agreement shall be governed by and interpreted in accordance with Italian law. The Parties agree to submit to the exclusive jurisdiction of the courts of Italy. However, in the event of any dispute between Licensee and Licensor under this Agreement, the Parties agree that they shall negotiate with each other in good faith in an attempt to resolve the dispute prior to any commencement of proceedings. If no solution can be found to settle the dispute within 45 days after giving written notice to the defaulting Party, then the dispute will be submitted to the Court of Forlì, Italy.
+"Object Code" means Computer Program code in any other form than Source Code that is not readily perceivable by humans and suitable for machine execution without the intervening steps of interpretation or compilation.
 
-I acknowledge that I have the authority to execute this Agreement on behalf of the Licensee and I further acknowledge that this Agreement constitutes a valid and legally binding obligation on the part of the Licensee. 
+"Open Source Components" means any computer code that has been published or otherwise been made accessible for use by the general public in Source Code format under license terms that may or may not contain restrictions or other conditions for the use, modification or further development of the Open Source Components.
+
+"Person" means any individual, partnership, corporation, limited liability company, joint venture, association, joint-stock company, trust, unincorporated organization, government or agency or political subdivision thereof, or other entity.
+
+"Server" means a computer with programs that provides services to other Computer Program(s) (and their users) in the same or other computers.
+
+"Server Application" means any Computer Program that is installed on, and provides services or functionality on, a Server.
+
+"Source Code" means Computer Program code, other than Object Code, and related source code level system documentation, comments and procedural code, such as job control language, which may be printed out or displayed in human-readable form. Source Code includes to the extent same exists supporting materials that would enable a reasonably skilled programmer to compile, debug and support and/or make improvements to such computer programming code in a commercially reasonable manner including:
+    a) technical and system documentation including detailed design, functional, operational, and technical documentation, flowcharts, diagrams, file layouts, report layouts, screen layouts, business rules, data and database models and structures, working papers and reasonably related notes and memoranda in electronic or written format, which are made or obtained in relation to the design and development of such computer programming code and compilation instructions related to such computer programming code,
+    b) listing by name, version, and vendor of relevant third party's compilers, utilities and other software that are necessary for normal operation of such computer programming code including sufficient information to procure a license from such vendors,
+    c) a reasonably detailed listing of relevant equipment and information necessary for normal operation of such computer programming code, and
+    d) all other information reasonably necessary to rebuild, install, and otherwise implement such computer programming code in the context of the applicable system(s) including, without limitation, all relevant tools, programs, files, encryptions keys, make files, installation instructions, systems settings, and database settings.
+
+"Target Application" means a Computer Program that incorporates the Software as an integral part.
+
+"Third Party" means any Person other than a Party or any or its Affiliates.
+
+"Updates" means subsequent minor releases of the Software and Documentation that are created for the purposes of Defect Correction(s) or minor enhancements to functionality that are made generally available by Licensor to its licensees of the Software as part of the Support Services. All Updates provided hereunder by Licensor to Licensee shall be considered Software and - if and when made available to Licensee - will be subject to all the terms for the Software under this Agreement, including the license grant to Licensee.
+
+"Upgrades" means subsequent major releases of the Software and Documentation that offer significant changes, additional functionalities or major improvement over the current version of the Software. All Upgrades provided hereunder by Licensor to Licensee shall be considered Software and - if and when made available to Licensee - will be subject to all the terms for the Software under this Agreement, including the license grant to Licensee.
+
+----------------
+2. License Grant
+----------------
+    ---------------------
+    2.1. Software License
+    ---------------------
+    Subject to the terms of this Agreement, Licensor hereby grants to Licensee, and Licensee hereby accepts, a perpetual, revocable only in the cases set forth in the termination provisions of this Agreement, royalty-free, worldwide, nonexclusive and non-transferable, rights and license to:
+    a) install, use, operate, execute, reproduce and create copies of the Software in Object Code format only, solely for the purpose:
+        I) to incorporate the Software into Licensee's Product(s) as an integral part, in Object Code format only, and
+        II) to maintain and support the use of the Software solely incorporated into Licensee's Product(s) in Object Code format only;
+    b) to sell, export and distribute the Licensee's Product(s) that incorporates the Software in Object Code format only, directly or indirectly through a Third Party, provided that Licensor gives to Licensee its prior written approval;
+    c) to use the Documentation in support of Licensee's license rights.
+
+    --------------------
+    2.2. Prohibited Uses
+    --------------------
+    Without limiting other restrictions in this Agreement, Licensee agrees that the Software shall not be incorporated into any Licensee's Product(s):
+
+    a) that is reasonably identifiable as a Developer Tool, or
+    b) that is reasonably identifiable as a Server Application, or
+    c) that is directly or indirectly distributed with, or pre-installed in, electronic device(s) or system(s) such as, but not limited to: firmware(s) or driver(s) that equip computer(s), computer component(s), graphics board(s), systems on chip(s), mobile phone(s), smartwatch(es), tablet(s), set-top-box(es), or any other electronic hardware or device, or
+    d) that offers or promotes services that may be damaging to, disparaging of, or otherwise detrimental to Licensor or its licensees, Affiliates and partners, or
+    e) that simply resembles, in whole or in part, the original Software functionalities by wrapping or exposing such functionalities through another software application interface, or
+    f) that competes with the Software in any commercial or non-commercial market
+
+    -------------------------
+    2.3. Licensee Obligations
+    -------------------------
+    a) Licensee acknowledges that it is solely responsible for incorporation tasks related to the Software and Licensee's Product(s), its chosen hardware and software platform, and Third Party software tools.
+    b) Licensee agrees not to reverse engineer, decompile, disassemble, modify, translate, make any attempt to discover the source code of the Software, or otherwise create derivative works of the Software.
+    c) Licensee agrees that it will cause to appear on an appropriate section of the Licensee's Product(s), all the copyright notices and proprietary data legends as contained in the Software delivered by Licensor or as otherwise reasonably required by Licensor.
+    d) The Software, including any downloading or use of, may be subject to export controls imposed by export control laws. Licensee agrees to comply with all such laws and regulations and acknowledges that Licensee has the responsibility to obtain licenses to export, re-export, or import the Software.
+
+----------
+3. Support
+----------
+    ---------------------
+    3.1. Support Services
+    ---------------------
+    Licensor is under no obligation to provide Support Services to Licensee, neither in the form of Updates, Upgrades nor Defect Corrections.
+
+--------------
+4. Fees; Taxes
+--------------
+    --------------------------------------
+    4.1. License and Support Services Fees
+    --------------------------------------
+    No License nor Support Services fee is due by Licensee, as long Licensee continues to meet the requirements set forward in Sections 2.2 and 2.3.
+
+------------
+5. Ownership
+------------
+    --------------
+    5.1. Ownership
+    --------------
+    Except for the rights granted to Licensee herein, all Intellectual Property Rights in and to the Software, Software Source Code, Software derivative work made by Licensor, Defect Correction(s), Updates and Upgrades will be and remain the property of Licensor.
+
+    -------------------------------
+    5.2. Proprietary Rights Notices
+    -------------------------------
+    Licensee shall not remove, alter or otherwise obscure any proprietary rights notices appearing in the Software.
+
+---------------------------------
+6. Representations And Warranties
+---------------------------------
+    ---------------------------
+    6.1. Authority; No Conflict
+    ---------------------------
+    Each Party hereby represents and warrants that:
+    a) it has the right, power, and authority to enter into this Agreement;
+    b) this Agreement has been duly executed by the Party's authorized representative;
+    c) this Agreement does not contravene or otherwise conflict with any other agreement entered into by that Party.
+
+    ---------------------------
+    6.2. Title; No Infringement
+    ---------------------------
+    Licensor represents and warrants that it has all title, rights, and interests in and to the Software and that Licensee's use of the Software will not infringe any copyright nor trademark of any Third Party.
+
+    ---------------------------
+    6.3. Open Source Components
+    ---------------------------
+    Licensor warrants that the Software does not contain Open Source Components except those listed in the Documentation.
+
+    -------------
+    6.4. No Virus
+    -------------
+    Licensor warrants that the Software does not and will neither contain any passwords, keys, security devices, trap doors or, any instructions commonly referred to as Trojan horses, anomalies, worms, self-destruct mechanisms, or time/logic bombs, nor any other code or functionality that may:
+    a) interfere with the functionality described in the Documentation, or
+    b) interfere with the use of the Software or the Licensee's Product(s).
+
+    ---------------------
+    6.5. No Remote Access
+    ---------------------
+    Licensor warrants that the Software does not contain any mechanism, feature or any other codes or instructions that:
+    a) cause the Software to remotely transmit any information to Licensor, any Licensor's Affiliate or any Third Party; or
+    b) it may be used to permit access to, or use of, the Software or computer systems on which the Software is loaded, or to which the Software is linked, by Licensor, any Licensor Affiliate or any Third Party.
+
+    ----------------
+    6.6. No Warranty
+    ----------------
+    EXCEPT FOR THE PRECEDING, LICENSOR MAKES NO WARRANTY, EITHER EXPRESS OR IMPLIED WITH RESPECT TO THE SOFTWARE, ITS QUALITY, MERCHANTABILITY, MERCHANTABLE QUALITY, DURABILITY OR FITNESS FOR A PARTICULAR PURPOSE. THE SOFTWARE PROVIDED HEREUNDER IS "AS IS", AND LICENSOR DOES NOT WARRANT THAT IT WILL BE ERROR-FREE.
+
+    ----------------------------
+    6.7. Limitation of Liability
+    ----------------------------
+    IN NO EVENT SHALL LICENSOR'S ENTIRE LIABILITY UNDER THIS AGREEMENT EXCEED THE FEES PAID BY LICENSEE HEREUNDER DURING THE PRECEDING TWELVE (12) MONTHS.
+    IN NO EVENT WHATSOEVER SHALL EITHER PARTY BE LIABLE TO THE OTHER OR TO THIRD PARTIES FOR ANY LOST REVENUES OR LOST PROFITS OR OTHER DIRECT OR INDIRECT, INCIDENTAL, SPECIAL, PUNITIVE OR CONSEQUENTIAL DAMAGES INCURRED BY ANY PERSON, EVEN IF ADVISED OF SUCH DAMAGES OR CLAIMS, TO THE FULL EXTENT ALLOWED BY LAW. THIS LIMITATION SHALL NOT AFFECT LICENSOR'S LIABILITY FOR DAMAGES UNDER MANDATORY ITALIAN LAW (I.E. STRICT LIABILITY THAT CANNOT BE CONTRACTUALLY WAIVED OR LIMITED BY THE PARTIES IN ADVANCE).
+
+------------------
+7. Indemnification
+------------------
+Licensor will indemnify and hold harmless Licensee from any and all Third Party claims, damages, or costs, including without limitations reasonable attorneys' fees, arising from the breach of its warranties in Section 6.2 (Title; No infringements) of this Agreement, provided that such indemnification shall only be applicable in the event of a final decision by a Court of competent jurisdiction from which no right of appeal exists.
+
+--------------
+8. Termination
+--------------
+    --------------------------
+    8.1. Termination for Cause
+    --------------------------
+    This Agreement is subject to automatic termination by the Licensor, without the requirement of any prior written notice, upon the occurrence of any of the following events:
+    a) any Licensee's use of the Software not in accordance with the license set forth in Section 2.1 (Software License);
+    b) any Licensee's breach of any of the restrictions set forth in Section 2.2 (Prohibited Use);
+    c) Licensee commences any claim that the Software infringes any patent, copyright, trademark, or other Intellectual Property Rights of any Third Party, or otherwise supports any claim by a Third Party that the Software infringes any patent, copyright, trademark, or other Intellectual Property Rights of any Third Party;
+    d) Licensee materially and intentionally provides information to Third Party that could facilitate illegal copying of the Software;
+    e) Licensee materially and intentionally misrepresents its identity or intentions in connection with this Agreement;
+
+    Subject to Section 8.2 (Notification and Cure) below, either Party shall have the right to terminate this Agreement upon the occurrence of any of the following events (hereinafter referred to as a "Default"):
+    f) either Party commits an Act of Insolvency;
+    g) either Party voluntary dissolves or attempts to dissolve itself as a corporation;
+    h) either Party's material breach of a term or condition of this Agreement.
+
+    --------------------------
+    8.2. Notification and Cure
+    --------------------------
+    If any of these Default occur, the non-defaulting Party shall give the defaulting Party written notice, and shall have the right to terminate this Agreement if the defaulting Party does not cure such Default within sixty (60) days of the receipt of such notice. The Parties' rights as set forth in this Section 8 (Termination) shall not be deemed exhaustive of their rights in law and equity.
+
+    --------------------------------
+    8.3. Termination for Convenience
+    --------------------------------
+    Licensee may terminate this Agreement at any time, for any reason or no reason by giving Licensor written notice of termination. Termination will be effective sixty (60) days after the date of the notice of termination.
+
+    --------------------------
+    8.4. Effect of Termination
+    --------------------------
+    The termination of this Agreement shall in no way relieve Licensee from its obligations to pay Licensor any sums accrued hereunder prior to such termination. Upon termination of this Agreement under Section 8.1 (Termination for Cause) or Section 8.3 (Termination for Convenience), Licensee shall immediately destroy all copies of the Software, including all archival and backup copies, and give written notice to Licensor that its obligations under this section have been carried out.
+
+----------
+9. General
+----------
+    ---------------------
+    9.1. No Joint Venture
+    ---------------------
+    Neither Party hereto shall use the name, trademark or other identification of the other Party in any manner except as contemplated herein, and except as otherwise authorized by the other Party. Nothing contained herein shall constitute or be construed or interpreted to create a joint venture, employment or agency relationship, nor trademark's license between the Parties.
+
+    ---------------------
+    9.2. Entire Agreement
+    ---------------------
+    This Agreement along with any attached schedules, appendices, or incorporated documents, constitutes the entire agreement between the Licensee and the Licensor regarding the subject matter herein. The Licensee acknowledges and agrees that no representations, warranties, or commitments, whether expressed or implied, have been made by the Licensor, except as expressly stated in this Agreement. Any additional terms or conditions proposed by the Licensee, whether in writing or otherwise, are hereby expressly rejected and shall have no force or effect. Any modifications, amendments, or waivers to this Agreement must be in writing and signed by both parties.
+    The Licensee acknowledges that they have had the opportunity to seek legal advice regarding the terms and conditions of this Agreement, and that they have entered into this Agreement freely, voluntarily, and with full knowledge and understanding of its terms.
+    This Agreement supersedes all prior negotiations between the Parties and cannot be amended, supplemented or modified except by written agreement.
+
+    -------------------------------
+    9.3. Benefit and Binding Effect
+    -------------------------------
+    This Agreement shall not be assigned without the prior written consent of the other Party hereto, except that either Party may transfer or assign its rights and obligations under this Agreement to:
+    a) any Person which acquires or succeeds to all or substantially all of the operating assets of the assigning Party pertaining to this Agreement;
+    b) any Person which owns the greater of voting control of more than fifty percent (50%) of the issued and outstanding capital stock of such assigning Party;
+    c) any Person of which such assigning Party owns the greater of voting control of more than fifty percent (50%) of the issued and outstanding capital stock; or
+    d) any Person into which the assigning Party is merged or reorganized pursuant to a plan of merger or reorganization.
+    This Agreement shall be binding upon and inure to the benefit of the Parties hereto and their respective successors and permitted assigns.
+
+    ------------------
+    9.4. Force Majeure
+    ------------------
+    Neither Party shall be liable to the other Party for any failure to perform any of its obligations hereunder resulting from acts of the other Party, acts of civil or military authority, governmental priorities, earthquake, fire, flood, epidemic, quarantine, energy crisis, war, riot, or any other unforeseeable, inevitable and serious causes beyond the control of the Party whose performance is delayed.
+
+    ------------
+    9.5. Notices
+    ------------
+    All notices required or permitted under this Agreement will be in writing, will reference this Agreement and will be deemed delivered when:
+    a) delivered personally, or
+    b) upon receipt or refusal of receipt after having been sent by registered or certified mail, return receipt requested, postage prepaid, or
+    c) with a commercial overnight courier specifying next day delivery, upon written verification of receipt or refusal of receipt.
+
+    All notices will be sent to the addresses set forth below to or such other address as may be designated by a Party by giving written notice to the other Party pursuant to this 
+    Section 9.5 (Notices):
+
+    If to Licensor:
+        Mazatech, Srl.
+        Via Rosario Livatino, 2
+        47020 - Longiano (FC), Italy
+
+    -----------------------
+    9.6. Waivers of Default
+    -----------------------
+    No Party is to be deemed to have waived or forfeited any right under this Agreement, whether on the basis of failure, delay or any other legal or equitable doctrine unless such waiver is made in writing signed by an authorized signatory of the Party against whom the waiver is sought to be enforced. Waiver of any provision, or any breach of any provision, of this Agreement in one instance, shall not constitute a waiver as to any other instance.
+
+    -----------------
+    9.7. Severability
+    -----------------
+    To the extent any provision or portion thereof of this Agreement is determined to be illegal, invalid or unenforceable by a competent authority in any jurisdiction, then such determination of that provision or portion thereof will not affect:
+    a) the legality, validity or enforceability of the remaining provisions of this Agreement; or
+    b) the legality, validity or enforceability of that provision in any other jurisdiction, and that provision (or portion thereof) will be limited if possible and only thereafter severed, if necessary, to the extent required to render the Agreement valid and enforceable and possible while maintaining the overall intent of the Parties under this Agreement.
+
+    -----------------------------------
+    9.8. Alternative Dispute Resolution
+    -----------------------------------
+    All disputes, claims, and controversies between the Parties arising under, out of or related to this Agreement and any subsequent amendments of this Agreement, shall be submitted to mediation in accordance with the WIPO Mediation Rules. The place of mediation shall be Rome (Italy), or a mutually convenient location. The language to be used in the mediation shall be English. Applicable rules of substantive law shall be the laws of Italy.
+
+    ------------------
+    9.9. Governing Law
+    ------------------
+    This Agreement will be governed by and construed in accordance with the laws of Italy, without regard to the conflict of law rules that would apply a different body of law. The United Nations Convention on Contracts for the International Sale of Goods will not apply in any way to this Agreement or to the transactions contemplated by this Agreement or otherwise to create any rights or to impose any duties or obligations on any Party to this Agreement.
+
+    ------------------
+    9.10. Jurisdiction
+    ------------------
+    Subject to Section 9.8 (Alternative Dispute Resolution), the Parties irrevocably agree to submit their disputes arising out of or in connection with this Agreement to the exclusive competence of the Courts of Rome (Italy) which will apply Italian laws, and they waive any other jurisdiction to which they may be entitled.
+
+    --------------
+    9.11. Headings
+    --------------
+    Headings in this Agreement are for the purpose of convenience only and are not intended to be used in its construction or interpretation.
+
+    ------------------------------
+    9.12. Press Release, Publicity
+    ------------------------------
+    Licensee agrees that it may not make any press release or public statement in relation to this Agreement or its contents, the relationship of the Parties or the Licensor without the prior written permission of Licensor.
+
+    ----------------------
+    9.13. English Language
+    ----------------------
+    The Parties agree that this Agreement and all notices and other communications under this Agreement will be in English. If this Agreement is translated, the English language version of this Agreement is the authoritative one.
+
+    ------------------------
+    9.14. Further Assurances
+    ------------------------
+    Each of the Parties will promptly execute and deliver to the other at the cost of the other such further documents and assurances and take such further actions as the other may from time to time request in order to more effectively carry out the intent and purpose of this Agreement and to establish and protect the rights, interests, and remedies intended to be created in favor of the other.

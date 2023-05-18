@@ -1,0 +1,17 @@
+#define APSTUDIO_READONLY_SYMBOLS
+#include "windows.h"
+#undef APSTUDIO_READONLY_SYMBOLS
+#include "resource.h"
+
+// application manifest (in order to set the default DPI awareness)
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST manifest.xml
+
+// application icon
+IDI_APP_ICON ICON DISCARDABLE "svg_viewer.ico"
+
+// font resources for AmanithSVG
+IDR_FONT_BEBAS_NEUE RCDATA "..\\..\\fonts\\bebas_neue_regular.ttf"
+IDR_FONT_DANCING_SCRIPT RCDATA "..\\..\\fonts\\dancing_script_regular.ttf"
+IDR_FONT_NOTO_MONO RCDATA "..\\..\\fonts\\noto_mono_regular.ttf"
+IDR_FONT_NOTO_SANS RCDATA "..\\..\\fonts\\noto_sans_regular.ttf"
+IDR_FONT_NOTO_SERIF RCDATA "..\\..\\fonts\\noto_serif_regular.ttf"

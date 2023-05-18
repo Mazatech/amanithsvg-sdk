@@ -1,10 +1,83 @@
+#/****************************************************************************
+#** Copyright (c) 2013-2023 Mazatech S.r.l.
+#** All rights reserved.
+#** 
+#** This file is part of AmanithSVG software, an SVG rendering library.
+#** 
+#** Redistribution and use in source and binary forms, with or without
+#** modification, are permitted (subject to the limitations in the disclaimer
+#** below) provided that the following conditions are met:
+#** 
+#** - Redistributions of source code must retain the above copyright notice,
+#**   this list of conditions and the following disclaimer.
+#** 
+#** - Redistributions in binary form must reproduce the above copyright notice,
+#**   this list of conditions and the following disclaimer in the documentation
+#**   and/or other materials provided with the distribution.
+#** 
+#** - Neither the name of Mazatech S.r.l. nor the names of its contributors
+#**   may be used to endorse or promote products derived from this software
+#**   without specific prior written permission.
+#** 
+#** NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE GRANTED
+#** BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+#** CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT
+#** NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+#** A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER
+#** OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+#** EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+#** PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+#** OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+#** WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+#** OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+#** ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#** 
+#** For any information, please contact info@mazatech.com
+#** 
+#****************************************************************************/
+#
+# Build instruction:
+#
+# Windows (Visual Studio Solution)
+# <open x64 Native Tools Command Prompt for VS 2022>
+# cmake -DCMAKE_TOOLCHAIN_FILE=./CMake/toolchain/win_x86_64.cmake --no-warn-unused-cli -G "Visual Studio 17 2022" -A x64 .
+# <open the generated .sln solution>
+#
+#
+# Windows (NMAKE)
+# <open x86 / x64 Native Tools Command Prompt for VS 2017 / 2019 / 2022>
+# cmake -DCMAKE_TOOLCHAIN_FILE=./CMake/toolchain/win_x86_64.cmake --no-warn-unused-cli -G "NMake Makefiles" .
+# nmake
+#
+#
+# macOS Universal Binary (arm64, x64)
+# cmake -DCMAKE_TOOLCHAIN_FILE=./CMake/toolchain/osx_ub.cmake --no-warn-unused-cli -G "Xcode" .
+# <open the generated Xcode project>, or
+# xcodebuild -configuration Release build
+#
+#
+# Linux
+# cmake -DCMAKE_TOOLCHAIN_FILE=./CMake/toolchain/linux_x86_64.cmake --no-warn-unused-cli -G "Unix Makefiles" .
+# make
+#
+#
+# iOS Universal Binary (arm64, x64)
+# cmake -DCMAKE_TOOLCHAIN_FILE=./CMake/toolchain/ios_ub.cmake --no-warn-unused-cli -G "Xcode" .
+# <open the generated Xcode project>, or
+#
+#
+# Android
+# launch Android Studio and open the project located in ./platform/android
+#
 cmake_minimum_required(VERSION 3.12 FATAL_ERROR)
-project(svg_viewer)
+project(svg_viewer C)
 set(CMAKE_BUILD_TYPE Release)
 
 function (get_os_subdir ret)
-    if (DEFINED OS_WINDOWS)
-        set(${ret} "win" PARENT_SCOPE)
+    if (DEFINED OS_WINDOWSCE)
+        set(${ret} "windowsce" PARENT_SCOPE)
+    elseif (DEFINED OS_WINDOWS)
+        set(${ret} "windows" PARENT_SCOPE)
     elseif (DEFINED OS_MACOSX)
         set(${ret} "macosx" PARENT_SCOPE)
     elseif (DEFINED OS_LINUX)
@@ -39,8 +112,10 @@ function (get_arch_subdir ret)
             set(${ret} "arm-gnueabi" PARENT_SCOPE)
         endif()
     elseif (DEFINED ARCH_ARMV7)
-        # supported by Linux, Android and QNX
-        if (DEFINED OS_ANDROID)
+        # supported by WindowsCE, Linux, Android and QNX
+        if (DEFINED OS_WINDOWSCE)
+            set(${ret} "arm-v7a" PARENT_SCOPE)
+        elseif (DEFINED OS_ANDROID)
             set(${ret} "armeabi-v7a" PARENT_SCOPE)
         elseif (DEFINED OS_QNX)
             set(${ret} "armv7-le" PARENT_SCOPE)
@@ -48,9 +123,13 @@ function (get_arch_subdir ret)
             set(${ret} "arm-gnueabi-v7a" PARENT_SCOPE)
         endif()
     elseif (DEFINED ARCH_ARMV8)
-        # supported by Linux and Android
-        if (DEFINED OS_ANDROID)
+        # supported by MacOS X, Linux, iOS and Android
+        if (DEFINED OS_MACOSX)
+            set(${ret} "arm64" PARENT_SCOPE)
+        elseif (DEFINED OS_ANDROID)
             set(${ret} "arm64-v8a" PARENT_SCOPE)
+        elseif (DEFINED OS_IOS)
+            set(${ret} "arm64" PARENT_SCOPE)
         else()
             set(${ret} "aarch64" PARENT_SCOPE)
         endif()
@@ -128,11 +207,8 @@ function (get_gfx_sdk gfx_inc_dir gfx_libs_dir gfx_libs)
 
     elseif (DEFINED OS_MACOSX)
 
-        if (DEFINED USE_OPENGL)
-            set(${gfx_libs} "-framework OpenGL" PARENT_SCOPE)
-        else()
-            set(${gfx_libs} "-framework Metal -framework MetalKit" PARENT_SCOPE)
-        endif()
+        # Apple Metal
+        set(${gfx_libs} "-framework Metal -framework MetalKit" PARENT_SCOPE)
 
     elseif (DEFINED OS_LINUX)
 
@@ -150,19 +226,28 @@ function (get_gfx_sdk gfx_inc_dir gfx_libs_dir gfx_libs)
             endif()
         else()
             # we are compiling on a real user machine (so we assume that OpenGL development libraries are already installed within the system)
-            if (DEFINED ARCH_X86_64 OR DEFINED ARCH_X86 OR DEFINED ARCH_PPC64)
-                set(${gfx_libs} "GL" PARENT_SCOPE)
+            if (DEFINED ARCH_X86_64 OR DEFINED ARCH_X86)
+                # OpenGL
+                set(${gfx_libs} "-lGL" PARENT_SCOPE)
             else()
-                set(${gfx_libs} "GLES_CM" PARENT_SCOPE)
+                # OpenGL ES
+                set(${gfx_libs} "-lGLESv1_CM -lEGL" PARENT_SCOPE)
             endif()
         endif()
 
     elseif (DEFINED OS_IOS)
 
+        # Apple Metal
         set(${gfx_libs} "-framework Metal -framework MetalKit" PARENT_SCOPE)
 
     elseif (DEFINED OS_ANDROID)
+
+        # open Android Studio project in ./platform/android
+
     elseif (DEFINED OS_QNX)
+
+        # not yet implemented
+
     endif()
 
 endfunction()
@@ -224,6 +309,16 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     string(TIMESTAMP CURRENT_YEAR "%Y")
     set(MACOSX_BUNDLE_COPYRIGHT "Copyright (C) 2013-${CURRENT_YEAR} Mazatech S.r.l. All rights reserved.")
 
+    # fonts that the application will provide to AmanithSVG
+    set(APP_FONTS_RESOURCES
+        # Fonts
+        ${CMAKE_SOURCE_DIR}/fonts/bebas_neue_regular.ttf
+        ${CMAKE_SOURCE_DIR}/fonts/dancing_script_regular.ttf
+        ${CMAKE_SOURCE_DIR}/fonts/noto_mono_regular.ttf
+        ${CMAKE_SOURCE_DIR}/fonts/noto_sans_regular.ttf
+        ${CMAKE_SOURCE_DIR}/fonts/noto_serif_regular.ttf
+    )
+
     if (DEFINED IOS OR DEFINED iOS)
         # application source code files
         set(APP_SOURCE_FILES
@@ -284,6 +379,8 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
             ${APP_SRC_PLATFORM_DIR}/storyboards/Main.storyboard
             # Metal shaders
             ${APP_SRC_PLATFORM_DIR}/programs.metal
+            # fonts
+            ${APP_FONTS_RESOURCES}
         )
         # generate a correct Xcode project with regard to shaders
         set_source_files_properties(${APP_SRC_PLATFORM_DIR}/programs.metal PROPERTIES LANGUAGE METAL)
@@ -302,6 +399,8 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
         set(APP_OTHER_RESOURCES
             # Metal shaders
             ${APP_SRC_PLATFORM_DIR}/programs.metal
+            # fonts
+            ${APP_FONTS_RESOURCES}
         )
         # generate a correct Xcode project with regard to shaders
         set_source_files_properties(${APP_SRC_PLATFORM_DIR}/programs.metal PROPERTIES LANGUAGE METAL)
@@ -359,11 +458,14 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
 
-    if (DEFINED USE_OPENGL)
-        target_compile_definitions(${PROJECT_NAME} PUBLIC USE_OPENGL)
-    endif()
-
     if (DEFINED IOS OR DEFINED iOS)
+
+        # get the installed iOS SDK version
+        execute_process(COMMAND xcodebuild  -version -sdk iphoneos SDKVersion
+                        OUTPUT_VARIABLE IOS_SDK_VERSION
+                        ERROR_QUIET
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
+
         set_target_properties(${PROJECT_NAME} PROPERTIES
                               MACOSX_BUNDLE_INFO_PLIST "${APP_SRC_PLATFORM_DIR}/info.plist.in"
                               XCODE_ATTRIBUTE_COMBINE_HIDPI_IMAGES "NO"
@@ -371,16 +473,46 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
                               # Universal application for both iPad and iPhone
                               XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
                               XCODE_ATTRIBUTE_DEVICES "Universal"
+                              # disable bitcode
+                              XCODE_ATTRIBUTE_ENABLE_BITCODE "NO"
+                              # enable ARC (Automatic Reference Counting)
+                              XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC "YES"
+                              XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${MACOSX_BUNDLE_GUI_IDENTIFIER}
                               RESOURCE "${APP_ICON} ${APP_OTHER_RESOURCES}")
+
         # include basic frameworks needed by the application (iOS)
         target_link_libraries(${PROJECT_NAME} PUBLIC "-framework CoreGraphics -framework QuartzCore -framework UIKit -framework MobileCoreServices")
+        # if an iOS SDK greater than version 14 is installed on the machine, link the UniformTypeIdentifiers
+        # framework, even if the deployment target has been set to a lower version; in this way, if the user 
+        # changes the deployment target by hand to a version 14 or greater, the code will continue to compile and link
+        if (${IOS_SDK_VERSION} VERSION_GREATER_EQUAL "14")
+            target_link_libraries(${PROJECT_NAME} PUBLIC "-weak_framework UniformTypeIdentifiers")
+        endif()
         # because AmanithSVG for iOS is a static library, we have to link C++ runtime now
         target_link_libraries(${PROJECT_NAME} PUBLIC stdc++)
     else()
+        # MacOS X, get the installed SDK version
+        execute_process(COMMAND xcodebuild  -version -sdk macosx SDKVersion
+                        OUTPUT_VARIABLE MACOS_SDK_VERSION
+                        ERROR_QUIET
+                        OUTPUT_STRIP_TRAILING_WHITESPACE)
+
         set_target_properties(${PROJECT_NAME} PROPERTIES
-                              MACOSX_BUNDLE_INFO_PLIST "${APP_SRC_PLATFORM_DIR}/info.plist.in")
+                              MACOSX_BUNDLE_INFO_PLIST "${APP_SRC_PLATFORM_DIR}/info.plist.in"
+                              XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${MACOSX_BUNDLE_GUI_IDENTIFIER}
+                              # enable ARC (Automatic Reference Counting)
+                              XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC "YES"
+                              # resources
+                              RESOURCE "${APP_ICON} ${APP_OTHER_RESOURCES}")
+
         # include basic frameworks needed by the application (MacOS X)
         target_link_libraries(${PROJECT_NAME} PUBLIC "-framework QuartzCore -framework Cocoa")
+        # if a macOS SDK greater than version 12 is installed on the machine, link the UniformTypeIdentifiers
+        # framework, even if the deployment target has been set to a lower version; in this way, if the user
+        # changes the deployment target by hand to a version 12 or greater, the code will continue to compile and link
+        if (${MACOS_SDK_VERSION} VERSION_GREATER_EQUAL "12")
+            target_link_libraries(${PROJECT_NAME} PUBLIC "-weak_framework UniformTypeIdentifiers")
+        endif()
     endif()
 
     # cross compiling for MacOS X on a non-Darwin host system (e.g. Linux)

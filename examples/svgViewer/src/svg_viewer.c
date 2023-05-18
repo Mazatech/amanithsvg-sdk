@@ -1,5 +1,5 @@
 /****************************************************************************
-** Copyright (c) 2013-2019 Mazatech S.r.l.
+** Copyright (c) 2013-2023 Mazatech S.r.l.
 ** All rights reserved.
 ** 
 ** This file is part of AmanithSVG software, an SVG rendering library.
@@ -37,62 +37,89 @@
 ****************************************************************************/
 
 #include "svg_viewer.h"
-#include <stdlib.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
 
-static char* loadXml(const char* fileName) {
+#if (defined(WIN32) || defined(_WIN32) || defined(__WIN32__)) || (defined(WIN64) || defined(_WIN64) || defined(__WIN64__))
+    #define TRAILER_PATH_DELIMITER     '\\'
+#else
+    #define TRAILER_PATH_DELIMITER     '/'
+#endif
 
-    char* buffer;
+// load a font file in memory, returning the allocated buffer and its size in bytes
+static SVGTubyte* loadFile(const char* fileName,
+                           const SVGTuint padAmount,
+                           size_t* fileSize) {
+
+    SVGTubyte* buffer;
     size_t size, read;
-    FILE* fp = 0;
+    FILE* fp = NULL;
 
 #if defined(_MSC_VER) && (_MSC_VER >= 1400)
+    // make Microsoft Visual Studio happy
     errno_t err = fopen_s(&fp, fileName, "rb");
-    if (!fp || err) {
+    if ((fp == NULL) || (err != 0)) {
 #else
     fp = fopen(fileName, "rb");
-    if (!fp) {
+    if (fp == NULL) {
 #endif
         return NULL;
     }
     
-    fseek(fp, 0, SEEK_SET);
-    fgetc(fp);
+    (void)fseek(fp, 0, SEEK_SET);
+    (void)fgetc(fp);
     if (ferror(fp) != 0) {
-        fclose(fp);
+        (void)fclose(fp);
         return NULL;
     }
 
-    fseek(fp, 0, SEEK_END);
+    // get the file size
+    (void)fseek(fp, 0, SEEK_END);
     size = ftell(fp);
-    fseek(fp, 0, SEEK_SET);
+    (void)fseek(fp, 0, SEEK_SET);
 
-    if (size == 0) {
-        fclose(fp);
+    if (size == 0U) {
+        (void)fclose(fp);
         return NULL;
     }
 
-    buffer = (char *)malloc((size + 1) * sizeof(char));
-    if (!buffer) {
-        fclose(fp);
+    if ((buffer = calloc(size + padAmount, sizeof(SVGTubyte))) == NULL) {
+        (void)fclose(fp);
         return NULL;
     }
 
-    read = fread(buffer, sizeof(char), size, fp);
-    if (read != size) {
+    // read the file content and store it within the memory buffer
+    if ((read = fread(buffer, sizeof(SVGTubyte), size, fp)) != size) {
         free(buffer);
-        fclose(fp);
+        (void)fclose(fp);
         return NULL;
     }
 
-    buffer[size] = '\0';
-    fclose(fp);
+    // close the file and return the pointer to the memory buffer
+    (void)fclose(fp);
+    *fileSize = size;
     return buffer;
 }
 
-SVGTHandle loadSvg(const char* fileName) {
+static char* loadXml(const char* fileName) {
+
+    size_t fileSize;
+    // add a trailing '\0'
+    SVGTubyte* buffer = loadFile(fileName, 1U, &fileSize);
+    return (char*)buffer;
+}
+
+// load a binary resource file in memory, returning the allocated buffer and its size in bytes
+SVGTubyte* loadResourceFile(const char* fileName,
+                            size_t* fileSize) {
+
+    return loadFile(fileName, 0U, fileSize);
+}
+
+// load the given SVG file in memory and create a relative SVG document
+SVGTHandle loadSvgFile(const char* fileName) {
 
     SVGTHandle svgHandle = SVGT_INVALID_HANDLE;
 
@@ -108,6 +135,68 @@ SVGTHandle loadSvg(const char* fileName) {
     }
 
     return svgHandle;
+}
+
+// extract the file name part from a given full path name (e.g. extractFileName("./subdir/myfile.txt") returns "myfile")
+void extractFileName(char* fileName,
+                     const char* fullFileName,
+                     const SVGTboolean includeExtension) {
+
+    const char* lastDelimiter = strrchr(fullFileName, TRAILER_PATH_DELIMITER);
+
+    if (!lastDelimiter) {
+        // delimiter has not been found, so the last occurence of '.' will be the file extension
+        const char* ext = strrchr(fullFileName, '.');
+        if (!ext) {
+            // no delimiter, no extension (e.g. "myfile" --> "myfile")
+            (void)strcpy(fileName, fullFileName);
+        }
+        else {
+            // no delimiter, extension dot found (e.g. "myfile.txt" --> "myfile")
+            size_t len = (size_t)((intptr_t)ext - (intptr_t)fullFileName);
+            (void)memcpy(fileName, fullFileName, len * sizeof(char));
+            fileName[len] = '\0';
+            // append extension, if requested
+            if (includeExtension) {
+                (void)strcat(fileName, ext);
+            }
+        }
+    }
+    else {
+        // delimiter has been found, so the last occurence of '.' after delimiter will be the file extension
+        const char* ext = strrchr(lastDelimiter, '.');
+        if (!ext) {
+            // delimiter found, extension dot not found (e.g. "./subdir/myfile" --> "myfile")
+            size_t len = (strlen(fullFileName) -  (size_t)((intptr_t)lastDelimiter - (intptr_t)fullFileName)) - 1;
+            (void)memcpy(fileName, lastDelimiter + 1, len * sizeof(char));
+            fileName[len] = '\0';
+        }
+        else {
+            // delimiter found, extension dot found (e.g. "./subdir/myfile.txt" --> "myfile")
+            size_t len = (size_t)((intptr_t)ext - (intptr_t)lastDelimiter) - 1;
+            (void)memcpy(fileName, lastDelimiter + 1, len * sizeof(char));
+            fileName[len] = '\0';
+            // append extension, if requested
+            if (includeExtension) {
+                (void)strcat(fileName, ext);
+            }
+        }
+    }
+}
+
+// extract the extension part from a given full path name (e.g. extractFileExt("./subdir/myfile.txt") returns "txt")
+void extractFileExt(char* fileExt,
+                    const char* fullFileName) {
+
+    const char* ext = strrchr(fullFileName, '.');
+
+    if (!ext) {
+        // no extension
+        (void)strcpy(fileExt, "");
+    }
+    else {
+        (void)strcpy(fileExt, &ext[1]);
+    }
 }
 
 void boxFit(SVGTuint* srcWidth,

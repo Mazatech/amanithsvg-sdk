@@ -1,5 +1,5 @@
 /****************************************************************************
-** Copyright (c) 2013-2019 Mazatech S.r.l.
+** Copyright (c) 2013-2023 Mazatech S.r.l.
 ** All rights reserved.
 ** 
 ** This file is part of AmanithSVG software, an SVG rendering library.
@@ -47,23 +47,26 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include "svg_viewer.h"
+// fonts to be provided to AmanithSVG
+#include "bebas_neue_regular.h"
+#include "dancing_script_regular.h"
+#include "noto_mono_regular.h"
+#include "noto_sans_regular.h"
+#include "noto_serif_regular.h"
 
 #define WINDOW_TITLE "SVG Viewer - Press F1 for about info"
+// send a message to a debug stream (the console)
+#define DEBUG_LOG(_msg) fprintf(stderr, _msg)
+#define DEBUG_LOG_EXT(_format, ...) fprintf(stderr, _format, __VA_ARGS__)
 
 // default window dimensions
 #define INITIAL_WINDOW_WIDTH 600
 #define INITIAL_WINDOW_HEIGHT 800
 
 // mouse button state
-#define MOUSE_BUTTON_NONE 0
-#define MOUSE_BUTTON_LEFT 1
+#define MOUSE_BUTTON_NONE  0
+#define MOUSE_BUTTON_LEFT  1
 #define MOUSE_BUTTON_RIGHT 2
-
-// background pattern (dimensions and ARGB colors)
-#define BACKGROUND_PATTERN_WIDTH 32
-#define BACKGROUND_PATTERN_HEIGHT 32
-#define BACKGROUND_PATTERN_COL0 0xFF808080
-#define BACKGROUND_PATTERN_COL1 0xFFC0C0C0
 
 #if !defined(GL_RED)
     #define GL_RED 0x1903
@@ -103,50 +106,68 @@ typedef void (*MY_PFNGLXSWAPINTERVALEXTPROC)(Display* dpy,
                                              int interval);
 
 // X11 variables
-Display* display = NULL;
-Window window;
-GC windowGfxContext;
-Atom atom_DELWIN;
-Atom atom_PROTOCOLS;
-XFontStruct* fontInfo = NULL;
+static Display* display = NULL;
+static Window window;
+static GC windowGfxContext;
+static Atom atom_DELWIN;
+static Atom atom_PROTOCOLS;
+static XFontStruct* fontInfo = NULL;
 
 // OpenGL context and surface/drawable
-GLXContext glContext = 0;
-GLXWindow glWindow = 0;
+static GLXContext glContext = 0;
+static GLXWindow glWindow = 0;
 // keep track of OpenGL texture capabilities
-SVGTboolean bgraSupport = SVGT_FALSE;
-SVGTboolean npotSupport =  SVGT_FALSE;
-SVGTboolean swizzleSupport =  SVGT_FALSE;
-GLint internalFormat = GL_RGBA;
-GLenum externalFormat = GL_RGBA;
+static SVGTboolean bgraSupport = SVGT_FALSE;
+static SVGTboolean npotSupport =  SVGT_FALSE;
+static SVGTboolean swizzleSupport =  SVGT_FALSE;
+static GLint internalFormat = GL_RGBA;
+static GLenum externalFormat = GL_RGBA;
 // OpenGL texture used to draw the pattern background
-GLuint patternTexture = 0;
+static GLuint patternTexture = 0;
 // OpenGL texture used to blit the AmanithSVG surface
-GLuint surfaceTexture = 0;
-SVGTfloat surfaceTranslation[2] = { 0.0f };
+static GLuint surfaceTexture = 0;
+static SVGTfloat surfaceTranslation[2] = { 0.0f };
 
 // SVG surface and document
-SVGTHandle svgSurface = SVGT_INVALID_HANDLE;
-SVGTHandle svgDoc = SVGT_INVALID_HANDLE;
+static SVGTHandle svgSurface = SVGT_INVALID_HANDLE;
+static SVGTHandle svgDoc = SVGT_INVALID_HANDLE;
+// AmanithSVG log buffer
+static char* logBuffer = NULL;
 
 // keep track if we are resizing the window
-SVGTboolean resizing = SVGT_FALSE;
-// force the view to redraw
-SVGTboolean forceRedraw = SVGT_FALSE;
+static SVGTboolean resizing = SVGT_FALSE;
 
 // keep track of mouse state
-SVGTint oldMouseX = 0;
-SVGTint oldMouseY = 0;
-SVGTint mouseButtonState = MOUSE_BUTTON_NONE;
+static SVGTint oldMouseX = 0;
+static SVGTint oldMouseY = 0;
+static SVGTint mouseButtonState = MOUSE_BUTTON_NONE;
 
 // info message
-char infoMessage[2048] = { 0 };
-SVGTboolean displayAbout = SVGT_FALSE;
-SVGTboolean done = SVGT_FALSE;
+static char infoMessage[2048] = { 0 };
+static SVGTboolean displayAbout = SVGT_FALSE;
+static SVGTboolean done = SVGT_FALSE;
 
-/*****************************************************************
-                       Utility functions
-*****************************************************************/
+// ---------------------------------------------------------------
+//              External resources (fonts and images)
+// ---------------------------------------------------------------
+#define SVG_RESOURCES_COUNT 5
+static SVGExternalResource resources[SVG_RESOURCES_COUNT] = {
+    // filename,                    type,                    buffer, size,  hints
+    { "bebas_neue_regular.ttf",     SVGT_RESOURCE_TYPE_FONT, bebas_neue_regular_ttf,      bebas_neue_regular_ttf_len,     SVGT_RESOURCE_HINT_DEFAULT_FANTASY_FONT },
+    { "dancing_script_regular.ttf", SVGT_RESOURCE_TYPE_FONT, dancing_script_regular_ttf,  dancing_script_regular_ttf_len, SVGT_RESOURCE_HINT_DEFAULT_CURSIVE_FONT },
+    { "noto_mono_regular.ttf",      SVGT_RESOURCE_TYPE_FONT, noto_mono_regular_ttf,       noto_mono_regular_ttf_len,      SVGT_RESOURCE_HINT_DEFAULT_MONOSPACE_FONT |
+                                                                                                                          SVGT_RESOURCE_HINT_DEFAULT_UI_MONOSPACE_FONT },
+    { "noto_sans_regular.ttf",      SVGT_RESOURCE_TYPE_FONT, noto_sans_regular_ttf,       noto_sans_regular_ttf_len,      SVGT_RESOURCE_HINT_DEFAULT_SANS_SERIF_FONT |
+                                                                                                                          SVGT_RESOURCE_HINT_DEFAULT_UI_SANS_SERIF_FONT |
+                                                                                                                          SVGT_RESOURCE_HINT_DEFAULT_SYSTEM_UI_FONT |
+                                                                                                                          SVGT_RESOURCE_HINT_DEFAULT_UI_ROUNDED_FONT },
+    { "noto_serif_regular.ttf",     SVGT_RESOURCE_TYPE_FONT, noto_serif_regular_ttf,      noto_serif_regular_ttf_len,     SVGT_RESOURCE_HINT_DEFAULT_SERIF_FONT |
+                                                                                                                          SVGT_RESOURCE_HINT_DEFAULT_UI_SERIF_FONT }
+};
+
+// ---------------------------------------------------------------
+//                     Utility functions
+// ---------------------------------------------------------------
 static SimpleRect screenDimensionsGet(void) {
 
     // get the default screen associated with the display
@@ -303,7 +324,7 @@ static SVGTboolean extensionFind(const char* string,
 static void stringDraw(const char* msg,
                        const SVGTint x,
                        const SVGTint y) {
-    
+
     XDrawImageString(display, window, windowGfxContext, x, y, msg, strlen(msg));
 }
 
@@ -387,9 +408,142 @@ static SVGTboolean fileExists(const char* absoluteFileName) {
     return fileStatusCheck(absoluteFileName, S_IFREG);
 }
 
-/*****************************************************************
-                            SVG viewer
-*****************************************************************/
+// ---------------------------------------------------------------
+//                    AmanithSVG initialization
+// ---------------------------------------------------------------
+static void amanithsvgResourceAdd(SVGExternalResource* resource) {
+
+    // provide AmanithSVG with the given resource
+    (void)svgtResourceSet(resource->fileName, resource->buffer, (SVGTuint)resource->bufferSize, resource->type, resource->hints);
+}
+
+// make external resources (fonts/images) available to AmanithSVG
+static void amanithsvgResourcesLoad(void) {
+
+    SVGTuint i;
+
+    // load external resources and provide them to AmanithSVG
+    for (i = 0U; i < SVG_RESOURCES_COUNT; ++i) {
+        amanithsvgResourceAdd(&resources[i]);
+    }
+}
+
+// release in-memory external resources (fonts/images) provided to AmanithSVG at initialization time
+static void amanithsvgResourcesRelease(void) {
+
+    // NB: AmanithSVG resources have been included as a static array, so they do not need to be freed
+}
+
+// initialize AmanithSVG and load external resources
+static SVGTboolean amanithsvgInit(void) {
+
+    SVGTErrorCode err;
+    // get screen dimensions
+    SimpleRect screenRect = screenDimensionsGet();
+
+    // initialize AmanithSVG
+    if ((err = svgtInit(screenRect.width, screenRect.height, screenDpiGet())) == SVGT_NO_ERROR) {
+        // set curves quality (used by AmanithSVG geometric kernel to approximate curves with straight
+        // line segments (flattening); valid range is [1; 100], where 100 represents the best quality
+        (void)svgtConfigSet(SVGT_CONFIG_CURVES_QUALITY, AMANITHSVG_CURVES_QUALITY);
+        // specify the system/user-agent language; this setting will affect the conditional rendering
+        // of <switch> elements and elements with 'systemLanguage' attribute specified
+        (void)svgtLanguageSet(AMANITHSVG_USER_AGENT_LANGUAGE);
+        // make external resources available to AmanithSVG; NB: all resources must be specified in
+        // advance before to call rendering-related functions, which are by definition tied to a thread
+        amanithsvgResourcesLoad();
+    }
+
+    return (err == SVGT_NO_ERROR) ? SVGT_TRUE : SVGT_FALSE;
+}
+
+// release SVG resources allocated by the viewer
+static void amanithsvgRelease(void) {
+
+    if (svgDoc != SVGT_INVALID_HANDLE) {
+        // destroy the SVG document
+        svgtDocDestroy(svgDoc);
+    }
+    if (svgSurface != SVGT_INVALID_HANDLE) {
+        // destroy the drawing surface
+        svgtSurfaceDestroy(svgSurface);
+    }
+    // terminate AmanithSVG library, freeing its all allocated resources
+    // NB: after this call, all AmanithSVG rendering functions will have no effect
+    svgtDone();
+
+    // release in-memory external resources (fonts/images)
+    // provided to AmanithSVG at initialization time
+    amanithsvgResourcesRelease();
+}
+
+// ---------------------------------------------------------------
+//                        AmanithSVG log
+// ---------------------------------------------------------------
+
+// append the message to the AmanithSVG log buffer
+static void logPrint(const char* message,
+                     SVGTLogLevel level) {
+
+    (void)svgtLogPrint(message, level);
+}
+
+// append an informational message to the AmanithSVG log buffer
+static void logInfo(const char* message) {
+
+    // push the message to AmanithSVG log buffer
+    logPrint(message, SVGT_LOG_LEVEL_INFO);
+}
+
+static void logInit(const char* fullFileName) {
+
+    if ((logBuffer = calloc(AMANITHSVG_LOG_BUFFER_SIZE, sizeof(char))) != NULL) {
+        // enable all log levels
+        if (svgtLogBufferSet(logBuffer, AMANITHSVG_LOG_BUFFER_SIZE, SVGT_LOG_LEVEL_ALL) == SVGT_NO_ERROR) {
+            char fname[512] = { '\0' };
+            char msg[1024] = { '\0' };
+            // extract the filename only from the full path
+            extractFileName(fname, fullFileName, SVGT_TRUE);
+            // keep track of the SVG filename within AmanithSVG log buffer
+            sprintf(msg, "Loading and parsing SVG file %s", fname);
+            logInfo(msg);
+        }
+    }
+    else {
+        DEBUG_LOG("Error allocating AmanithSVG log buffer");
+    }
+}
+
+static void logDestroy(void) {
+
+    // make sure AmanithSVG no longer uses a log buffer (i.e. disable logging)
+    (void)svgtLogBufferSet(NULL, 0U, 0U);
+    // release allocated memory
+    if (logBuffer != NULL) {
+        free(logBuffer);
+        logBuffer = NULL;
+    }
+}
+
+// output AmanithSVG log content, using the console
+static void logOutput(void) {
+
+    if (logBuffer != NULL) {
+
+        SVGTuint info[4] = { 0U, 0U, 0U, 0U };
+        SVGTErrorCode err = svgtLogBufferInfo(info);
+
+        // info[2] = current length, in characters (i.e. the total number of
+        // characters written, included the trailing '\0')
+        if ((err == SVGT_NO_ERROR) && (info[2] > 1U)) {
+            DEBUG_LOG(logBuffer);
+        }
+    }
+}
+
+// ---------------------------------------------------------------
+//                         OpenGL textures
+// ---------------------------------------------------------------
 static void genPatternTexture(void) {
 
     SVGTuint col0 = bgraSupport ? BACKGROUND_PATTERN_COL0 : swapRedBlue(BACKGROUND_PATTERN_COL0);
@@ -517,7 +671,7 @@ static void drawSurfaceTexture(void) {
     const SVGTfloat surfaceHeight = (SVGTfloat)svgtSurfaceHeight(svgSurface);
     const SVGTfloat tx = (SVGTfloat)((SVGTint)(surfaceTranslation[0] + 0.5f));
     const SVGTfloat ty = (SVGTfloat)((SVGTint)(surfaceTranslation[1] + 0.5f));
-    
+
     if (npotSupport) {
         u = 1.0f;
         v = 1.0f;
@@ -548,7 +702,7 @@ static void drawSurfaceTexture(void) {
     rectangleDraw(tx + surfaceWidth - 2.0f, ty, 2.0f, surfaceHeight);
 }
 
-static void deleteTextures(void) {
+static void openglRelease(void) {
 
     if (patternTexture != 0) {
         glDeleteTextures(1, &patternTexture);
@@ -560,6 +714,10 @@ static void deleteTextures(void) {
         surfaceTexture = 0;
     }
 }
+
+// ---------------------------------------------------------------
+//                          SVG viewer
+// ---------------------------------------------------------------
 
 // resize AmanithSVG surface to the given dimensions, then draw the loaded SVG document
 static void svgDraw(const SVGTuint width,
@@ -577,10 +735,9 @@ static void svgDraw(const SVGTuint width,
     else {
         // first time, we must create AmanithSVG surface
         svgSurface = svgtSurfaceCreate(width, height);
-        // clear the drawing surface (full transparent white) at every svgtDocDraw call
-        svgtClearColor(1.0f, 1.0f, 1.0f, 0.0f);
-        svgtClearPerform(SVGT_TRUE);
     }
+    // clear the drawing surface (full transparent white)
+    svgtSurfaceClear(svgSurface, 1.0f, 1.0f, 1.0f, 0.0f);
     // draw the SVG document (upon AmanithSVG surface)
     svgtDocDraw(svgDoc, svgSurface, SVGT_RENDERING_QUALITY_BETTER);
     // create surface texture
@@ -600,6 +757,7 @@ static void sceneDraw(void) {
     }
 }
 
+// resize AmanithSVG surface and re-draw the loaded SVG document
 static void sceneResize(const SVGTuint width,
                         const SVGTuint height) {
 
@@ -619,55 +777,68 @@ static void sceneResize(const SVGTuint width,
     glViewport(0, 0, width, height);
     projectionLoad(0.0f, width, 0.0f, height);
 
+    // output AmanithSVG log content, using the console
+    // NB: AmanithSVG log was initialized within the pickedDocumentLoad
+    logOutput();
+    // release AmanithSVG log buffer
+    logDestroy();
+
     // we have finished with the resizing, now we can update the window content (i.e. draw)
     resizing = SVGT_FALSE;
-    forceRedraw = SVGT_TRUE;
 }
 
-// initialize the SVG viewer, loading the given SVG file
-static SVGTboolean viewerInit(const char* fileName) {
+// ---------------------------------------------------------------
+//                        File picker
+// ---------------------------------------------------------------
 
-    SVGTboolean ok = SVGT_FALSE;
+// resize the window in order to match the desired dimensions
+static void windowResize(const SimpleRect* desiredRect) {
+
     // get screen dimensions
     SimpleRect screenRect = screenDimensionsGet();
+    // clamp window dimensions against screen bounds
+    SVGTint w = MIN(desiredRect->width, screenRect.width);
+    SVGTint h = MIN(desiredRect->height, screenRect.height);
+    // center window in the middle of the screen
+    SVGTint x = ((SVGTint)screenRect.width - w) / 2;
+    SVGTint y = ((SVGTint)screenRect.height - h) / 2;
 
-    // initialize AmanithSVG library (actually just the first call performs the real initialization)
-    if (svgtInit(screenRect.width, screenRect.height, screenDpiGet()) == SVGT_NO_ERROR) {
-        // destroy a previously loaded document, if any
-        if (svgDoc != SVGT_INVALID_HANDLE) {
-            svgtDocDestroy(svgDoc);
-        }
-        // load a new SVG file
-        svgDoc = loadSvg(fileName);
-        ok = (svgDoc != SVGT_INVALID_HANDLE) ? SVGT_TRUE : SVGT_FALSE;
+    // move / resize the window
+    XMoveResizeWindow(display, window, x, MAX(y, 32), (SVGTuint)w, (SVGTuint)h);
+}
+
+// load and draw the choosen SVG file
+static void pickedDocumentLoad(const char* fileName) {
+
+    // initialize AmanithSVG log (in order to keep track of possible errors
+    // and warnings arising from the parsing/rendering of selected file)
+    logInit(fileName);
+
+    // destroy a previously loaded document, if any
+    if (svgDoc != SVGT_INVALID_HANDLE) {
+        svgtDocDestroy(svgDoc);
     }
-    // we have finished
-    mouseButtonState = MOUSE_BUTTON_NONE;
-    return ok;
+    // load a new SVG file
+    if ((svgDoc = loadSvgFile(fileName)) != SVGT_INVALID_HANDLE) {
+        // get screen dimensions
+        SimpleRect screenRect = screenDimensionsGet();
+        // calculate AmanithSVG surface dimensions
+        SimpleRect desiredRect = surfaceDimensionsCalc(svgDoc, screenRect.width, screenRect.height);
+        // resize the window in order to match the desired surface dimensions
+        // NB: this call will trigger the following chain of events:
+        // WM_SIZE event (see windowMessagesHandler) --> sceneResize
+        windowResize(&desiredRect);
+    }
 }
 
-// destroy SVG resources allocated by the viewer
-static void viewerDestroy(void) {
-
-    // destroy the SVG document
-    svgtDocDestroy(svgDoc);
-    // destroy the drawing surface
-    svgtSurfaceDestroy(svgSurface);
-    // deinitialize AmanithSVG library
-    svgtDone();
-    // destroy used textures
-    deleteTextures();
-}
-
-/*****************************************************************
-                         Event handlers
-*****************************************************************/
+// ---------------------------------------------------------------
+//                       Event handlers
+// ---------------------------------------------------------------
 static void deltaTranslation(const SVGTfloat deltaX,
                              const SVGTfloat deltaY) {
 
     surfaceTranslation[0] += deltaX;
     surfaceTranslation[1] -= deltaY;
-    forceRedraw = SVGT_TRUE;
 }
 
 static void mouseLeftButtonDown(const SVGTint x,
@@ -697,34 +868,20 @@ static void mouseMove(const SVGTint x,
     }
 }
 
-/*****************************************************************
-                       Windowing system
-*****************************************************************/
-static void windowResize(const SimpleRect* desiredRect) {
-
-    // get screen dimensions
-    SimpleRect screenRect = screenDimensionsGet();
-    // clamp window dimensions against screen bounds
-    SVGTint w = MIN(desiredRect->width, screenRect.width);
-    SVGTint h = MIN(desiredRect->height, screenRect.height);
-    // center window in the middle of the screen
-    SVGTint x = ((SVGTint)screenRect.width - w) / 2;
-    SVGTint y = ((SVGTint)screenRect.height - h) / 2;
-
-    // move / resize the window
-    XMoveResizeWindow(display, window, x, MAX(y, 32), (SVGTuint)w, (SVGTuint)h);
-}
-
+// ---------------------------------------------------------------
+//                     Windowing system
+// ---------------------------------------------------------------
 static void windowFontLoad(void) {
 
     char fontName[] = "9x15";
 
     // load font and get font information structure
     if ((fontInfo = XLoadQueryFont(display, fontName)) == NULL) {
-        fprintf(stderr, "Cannot open %s font.\n", fontName);
+        DEBUG_LOG_EXT("Cannot open %s font.\n", fontName);
     }
 }
 
+// create the native window
 static SVGTboolean windowCreate(const char* title,
                                 const SVGTuint width,
                                 const SVGTuint height) {
@@ -759,7 +916,7 @@ static SVGTboolean windowCreate(const char* title,
     // open a display on the current root window
     display = XOpenDisplay(NULL);
     if (display == NULL) {
-        fprintf(stderr, "Unable to open display.\n");
+        DEBUG_LOG("Unable to open display.\n");
         return SVGT_FALSE;
     }
 
@@ -770,7 +927,7 @@ static SVGTboolean windowCreate(const char* title,
     
     // run only on a 32bpp display
     if ((screenDepth != 24) && (screenDepth != 32)) {
-        fprintf(stderr, "Cannot find 32bit pixel format on the current display.\n");
+        DEBUG_LOG("Cannot find 32bit pixel format on the current display.\n");
         XCloseDisplay(display);
         return SVGT_FALSE;
     }
@@ -782,7 +939,7 @@ static SVGTboolean windowCreate(const char* title,
     // request a suitable framebuffer configuration
     fbConfigs = glXChooseFBConfig(display, screen, glAttributes, &fbConfigsCount);
     if ((!fbConfigs) || (fbConfigsCount < 1)) {
-        fprintf(stderr, "Cannot find a suitable framebuffer configuration.\n");
+        DEBUG_LOG("Cannot find a suitable framebuffer configuration.\n");
         return SVGT_FALSE;
     }
 
@@ -798,7 +955,7 @@ static SVGTboolean windowCreate(const char* title,
     // create the window centered on the screen
     window = XCreateWindow(display, RootWindow(display, visualInfo->screen), (screenWidth - width) / 2, (screenHeight - height) / 2, width, height, 0, visualInfo->depth, InputOutput, visualInfo->visual, CWColormap | CWBorderPixel | CWBackPixel | CWBackingStore, &windowAttributes);
     if (window == None) {
-        fprintf(stderr, "Unable to create the window.\n");
+        DEBUG_LOG("Unable to create the window.\n");
         XCloseDisplay(display);
         return SVGT_FALSE;
     }
@@ -829,7 +986,7 @@ static SVGTboolean windowCreate(const char* title,
     // create a GLX context for OpenGL rendering
     glContext = glXCreateNewContext(display, fbConfigs[0], GLX_RGBA_TYPE, NULL, True);
     if (!glContext) {
-        fprintf(stderr, "Unable to create the GLX context.\n");
+        DEBUG_LOG("Unable to create the GLX context.\n");
         XDestroyWindow(display, window);
         XCloseDisplay(display);
         return SVGT_FALSE;
@@ -919,7 +1076,7 @@ static SVGTboolean windowCreate(const char* title,
     XMapRaised(display, window);
     // clear event queue
     XFlush(display);
-    
+
     // get the default graphic context
     windowGfxContext = DefaultGC(display, visualInfo->screen);
     XSetForeground(display, windowGfxContext, BlackPixel(display, screen));
@@ -955,10 +1112,10 @@ static SVGTboolean windowCreate(const char* title,
     windowFontLoad();
 
     resizing = SVGT_TRUE;
-    forceRedraw = SVGT_FALSE;
     return SVGT_TRUE;
 }
 
+// close the native window
 static void windowDestroy(void) {
 
     // delete used font
@@ -995,21 +1152,21 @@ static void processKeyPressure(KeySym key) {
         }
         else {
             displayAbout = SVGT_FALSE;
-            forceRedraw = SVGT_TRUE;
         }
     }
     else {
         if (displayAbout) {
             displayAbout = SVGT_FALSE;
-            forceRedraw = SVGT_TRUE;
         }
     }
 }
 
+// process the given event
 static void processEvent(XEvent *ev) {
 
     switch (ev->type) {
-        
+
+        // handle key pressure
         case KeyPress:
             processKeyPressure(XLookupKeysym(&ev->xkey, 0));
             break;
@@ -1017,27 +1174,25 @@ static void processEvent(XEvent *ev) {
         case ButtonPress:
             if (displayAbout) {
                 displayAbout = SVGT_FALSE;
-                forceRedraw = SVGT_TRUE;
             }
             if (ev->xbutton.button == Button1) {
                 mouseLeftButtonDown(ev->xbutton.x, ev->xbutton.y);
             }
             break;
-                
+
         case ButtonRelease:
             if (displayAbout) {
                 displayAbout = SVGT_FALSE;
-                forceRedraw = SVGT_TRUE;
             }
             if (ev->xbutton.button == Button1) {
                 mouseLeftButtonUp(ev->xbutton.x, ev->xbutton.y);
             }
             break;
-                
+
         case MotionNotify:
             mouseMove(ev->xmotion.x, ev->xmotion.y);
             break;
-                
+
         case ClientMessage:
             if ((((XClientMessageEvent *)ev)->message_type == atom_PROTOCOLS) &&
                 (((XClientMessageEvent *)ev)->data.l[0] == (long)atom_DELWIN)) {
@@ -1079,38 +1234,9 @@ static void processEvents(void) {
     }
 }
 
-int main(int argc,
-         char *argv[]) {
+// the main events loop
+static int windowEventsLoop(void) {
 
-    if (argc < 2) {
-        fprintf(stderr, "\nUsage is: %s <svg file>\n\n", argv[0]);
-        return EXIT_FAILURE;
-    }
-    // check input SVG file
-    if (!fileExists(argv[1])) {
-        fprintf(stderr, "\nInput file %s does not exist or it is not readable!\n\n", argv[1]);
-        return EXIT_FAILURE;
-    }
-
-    // create the window
-    if (!windowCreate(WINDOW_TITLE, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT)) {
-        return EXIT_FAILURE;
-    }
-
-    // load the SVG file
-    if (viewerInit(argv[1])) {
-        SimpleRect screenRect = screenDimensionsGet();
-        // calculate AmanithSVG surface dimensions
-        SimpleRect desiredRect = surfaceDimensionsCalc(svgDoc, screenRect.width, screenRect.height);
-        // resize the window in order to match the desired surface dimensions
-        windowResize(&desiredRect);
-    }
-    else {
-        windowDestroy();
-        return EXIT_FAILURE;
-    }
-
-    // main loop
     while (!done) {
         // dispatch events, taking care to process keyboard and mouse
         processEvents();
@@ -1118,17 +1244,57 @@ int main(int argc,
             textDraw(infoMessage, 10, 10);
         }
         else {
-            if (forceRedraw && (!resizing)) {
+            if (!resizing) {
                 sceneDraw();
                 windowBuffersSwap();
-                forceRedraw = SVGT_FALSE;
             }
         }
     }
 
-    // destroy SVG resources allocated by the viewer
-    viewerDestroy();
-    // close window
-    windowDestroy();
     return EXIT_SUCCESS;
+}
+
+// ---------------------------------------------------------------
+//                             Main
+// ---------------------------------------------------------------
+int main(int argc,
+         char *argv[]) {
+
+    int exitCode = EXIT_FAILURE;
+
+    if (argc < 2) {
+        DEBUG_LOG_EXT("\nUsage is: %s <svg file>\n\n", argv[0]);
+    }
+    else
+    // check input SVG file
+    if (!fileExists(argv[1])) {
+        DEBUG_LOG_EXT("\nInput file %s does not exist or it is not readable!\n\n", argv[1]);
+    }
+    else {
+        // create the native window
+        if (windowCreate(WINDOW_TITLE, INITIAL_WINDOW_WIDTH, INITIAL_WINDOW_HEIGHT)) {
+            // initialize AmanithSVG and load external resources
+            if (amanithsvgInit()) {
+                // load and draw the choosen SVG file
+                pickedDocumentLoad(argv[1]);
+                // enter events loop
+                exitCode = windowEventsLoop();
+                // terminate AmanithSVG library
+                amanithsvgRelease();
+                // release OpenGL objects
+                openglRelease();
+            }
+            else {
+                DEBUG_LOG("AmanithSVG initialization failed!");
+            }
+
+            // close the native window
+            windowDestroy();
+        }
+        else {
+            DEBUG_LOG("Window creation failed!");
+        }
+    }
+
+    return exitCode;
 }

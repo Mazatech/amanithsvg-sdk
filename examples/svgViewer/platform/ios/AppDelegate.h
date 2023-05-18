@@ -1,5 +1,5 @@
 /****************************************************************************
-** Copyright (c) 2013-2019 Mazatech S.r.l.
+** Copyright (c) 2013-2023 Mazatech S.r.l.
 ** All rights reserved.
 ** 
 ** This file is part of AmanithSVG software, an SVG rendering library.
@@ -36,6 +36,7 @@
 ** 
 ****************************************************************************/
 #import <UIKit/UIKit.h>
+#include "svg_viewer.h"
 
 @interface AppDelegate : UIResponder <UIApplicationDelegate> {
 }

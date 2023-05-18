@@ -1,5 +1,5 @@
 /****************************************************************************
-** Copyright (c) 2013-2019 Mazatech S.r.l.
+** Copyright (c) 2013-2023 Mazatech S.r.l.
 ** All rights reserved.
 ** 
 ** This file is part of AmanithSVG software, an SVG rendering library.
@@ -39,10 +39,11 @@
 #import <MobileCoreServices/MobileCoreServices.h>
 #import <Metal/Metal.h>
 #import <MetalKit/MetalKit.h>
+#import <os/log.h>
 #include <simd/simd.h>
 #include "svg_viewer.h"
 
-@interface View : MTKView <MTKViewDelegate, UIGestureRecognizerDelegate, UIDocumentPickerDelegate> {
+@interface ViewerView : MTKView <MTKViewDelegate, UIGestureRecognizerDelegate, UIDocumentPickerDelegate> {
 
     // Metal command queue
     id<MTLCommandQueue> mtlCommandQueue;
@@ -55,20 +56,29 @@
     id<MTLTexture> patternTexture;
     // Metal texture used to draw the AmanithSVG surface
     id<MTLTexture> surfaceTexture;
-    // The current size of the view, used as an input to the vertex shader
+    // the current size of the view, used as an input to the vertex shader
     vector_uint2 viewportSize;
+
+    // custom log object (Apple unified logging system)
+    os_log_t logger;
+    // AmanithSVG log buffer
+    char* logBuffer;
 
     // keep track if we are selecting/opening an SVG file
     SVGTboolean selectingFile;
     // keep track of touch position
     SVGTfloat oldTouchX;
     SVGTfloat oldTouchY;
+    
     // SVG surface and document
     SVGTHandle svgSurface;
     SVGTHandle svgDoc;
     SVGTfloat surfaceTranslation[2];
 }
 
+// initialize the view (i.e. create Metal pipeline states, textures and so on)
 - (void) initView;
+// open the document picker
+- (void) fileChooseDialog;
 
 @end

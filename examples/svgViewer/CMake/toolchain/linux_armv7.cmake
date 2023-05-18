@@ -7,15 +7,20 @@ set(ARCH_ARMV7 true CACHE STRING "armv7 architecture (used internally, not relat
 
 # assembler
 set(CMAKE_ASM_COMPILER /usr/bin/arm-linux-gnueabi-as)
-set(CMAKE_ASM_PREPROCESSOR /usr/bin/arm-linux-gnueabi-gcc-6 CACHE FILEPATH "Preprocessor for Linux armv7")
+set(CMAKE_ASM_PREPROCESSOR /usr/bin/arm-linux-gnueabi-gcc CACHE FILEPATH "Preprocessor for Linux armv7")
 set(CMAKE_ASM_COMPILE_OBJECT
     "${CMAKE_ASM_PREPROCESSOR} <DEFINES> <INCLUDES> $(C_FLAGS) $(C_DEFINES) -o <OBJECT>_pp.s -E <SOURCE>"
     "${CMAKE_ASM_COMPILER} ${CMAKE_ASM_FLAGS} -o <OBJECT> <OBJECT>_pp.s")
-set(CMAKE_C_COMPILER /usr/bin/arm-linux-gnueabi-gcc-6)
-set(CMAKE_CXX_COMPILER /usr/bin/arm-linux-gnueabi-g++-6)
+set(CMAKE_C_COMPILER /usr/bin/arm-linux-gnueabi-gcc)
+set(CMAKE_CXX_COMPILER /usr/bin/arm-linux-gnueabi-g++)
 set(CMAKE_AR /usr/bin/arm-linux-gnueabi-ar CACHE FILEPATH "Archiver for Linux armv7")
 set(CMAKE_LD /usr/bin/arm-linux-gnueabi-ld CACHE FILEPATH "Linker for Linux armv7")
 set(CMAKE_STRIP /usr/bin/arm-linux-gnueabi-strip CACHE FILEPATH "Stripper for Linux armv7")
+
+# in order to check compilers, cmake will try (as default) to build test applications
+# which is not always possible (especially in cross mobile environments); so we skip
+# the generation of test executables
+set(CMAKE_TRY_COMPILE_TARGET_TYPE "STATIC_LIBRARY")
 
 set(CMAKE_FIND_ROOT_PATH /usr/arm-linux-gnueabi)
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM ONLY)
@@ -23,8 +28,6 @@ set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
 set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
 
 set(CMAKE_IGNORE_PATH /usr/lib/x86_64-linux-gnu/ /usr/lib/x86_64-linux-gnu/lib/)
-
-set(CC_NO_UNINITIALIZED_WARNING "-Wno-uninitialized" CACHE STRING "No uninitialized variable warning for Linux armv7 compiler")
 
 # common flags
 set(LINUX_COMMON_C_FLAGS "-O2 -ffast-math -fno-exceptions -fno-strict-aliasing -fomit-frame-pointer -Wall -W")

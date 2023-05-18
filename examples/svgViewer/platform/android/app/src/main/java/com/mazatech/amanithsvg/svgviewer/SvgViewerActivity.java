@@ -1,5 +1,5 @@
 /****************************************************************************
-** Copyright (c) 2013-2019 Mazatech S.r.l.
+** Copyright (c) 2013-2023 Mazatech S.r.l.
 ** All rights reserved.
 ** 
 ** This file is part of AmanithSVG software, an SVG rendering library.
@@ -39,24 +39,38 @@ package com.mazatech.amanithsvg.svgviewer;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.res.Resources;
+import android.os.Build;
 import android.support.annotation.NonNull;
+import android.support.annotation.RequiresApi;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.os.Build;
+import android.util.DisplayMetrics;
+import android.util.TypedValue;
 import android.view.Menu;
 import android.view.MenuItem;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
+// AmanithSVG for Android
+import com.mazatech.android.SVGAssetsAndroid;
+import com.mazatech.android.SVGAssetsConfigAndroid;
+
+// AmanithSVG (low level layer)
+import com.mazatech.svgt.SVGTResourceHint;
+import com.mazatech.svgt.SVGTResourceType;
 
 import static com.mazatech.amanithsvg.svgviewer.SvgViewerView.*;
 
+import java.util.EnumSet;
+
 public class SvgViewerActivity extends AppCompatActivity {
 
+    private static final String LOG_TAG = "SvgViewerActivity";
+
     // keep track of loaded AmanithSVG native libraries
-    static boolean nativeLibsLoaded = false;
+    private static boolean nativeLibsLoaded = false;
+    // AmanithSVG for Android instance
+    private static SVGAssetsAndroid svg = null;
+
     // view
     private SvgViewerView view = null;
     // SVG file path
@@ -67,126 +81,80 @@ public class SvgViewerActivity extends AppCompatActivity {
     // file dialog
     static final int REQUEST_LOAD = 0;
 
-    private boolean copyFile(@NonNull InputStream input, OutputStream output) {
+    private void resourceAdd(SVGAssetsConfigAndroid config,
+                             // the unique integer id as generate by aapt tool
+                             int aaptId,
+                             final EnumSet<SVGTResourceHint> hints) {
 
-        boolean result;
+        boolean supported;
+        SVGTResourceType resourceType;
+        Resources resources = getResources();
+        TypedValue value = new TypedValue();
+        // get resource value (e.g. raw/myfont.ttf)
+        resources.getValue(aaptId, value, true);
+        // extract filename (e.g. myfont.ttf)
+        String[] parts = value.string.toString().split("/");
+        String fileName = parts[parts.length - 1];
+        String fileExt = fileName.substring(fileName.lastIndexOf(".") + 1);
 
-        try {
-            byte[] buffer = new byte[4096];
-            while (true) {
-                int length = input.read(buffer);
-                if (length == -1) {
-                    break;
-                }
-                output.write(buffer, 0, length);
-            }
-            // close streams
-            input.close();
-            output.close();
-            result = true;
-        }
-        catch (java.io.IOException e) {
-            System.err.println("File copy failed.\n" + e);
-            result = false;
-        }
-
-        return result;
-    }
-
-    private boolean loadSharedLibrary(String libPath, String libName) {
-
-        boolean result;
-        String tmpPath = System.getProperty("java.io.tmpdir") + "/AmanithSVG/";
-        String tmpLib = tmpPath + libName;
-        // ensure the existence of destination directory
-        File tmpFile = new File(tmpLib);
-        tmpFile.getParentFile().mkdirs();
-
-        try {
-            InputStream input = getAssets().open(libPath + libName);
-            FileOutputStream output = new FileOutputStream(tmpFile);
-            result = copyFile(input, output);
-        }
-        catch (java.io.IOException e) {
-            System.err.println("Opening file streams failed.\n" + e);
-            result = false;
+        switch (fileExt.toLowerCase()) {
+            case "otf":
+            case "ttf":
+            case "woff":
+            case "woff2":
+                supported = true;
+                resourceType = SVGTResourceType.Font;
+                break;
+            case "jpg":
+            case "jpeg":
+            case "png":
+                supported = true;
+                resourceType = SVGTResourceType.Image;
+                break;
+            default:
+                supported = false;
+                resourceType = SVGTResourceType.Font;
+                break;
         }
 
-        if (result) {
-            try {
-                System.load(tmpLib);
-            }
-            catch (UnsatisfiedLinkError e) {
-                System.err.println("Native code library failed to load, the file does not exist.\n" + e);
-                result = false;
-            }
-        }
-
-        return result;
-    }
-
-    private boolean loadAmanithSVG() {
-
-        boolean result = true;
-
-        String vm = System.getProperty("java.vm.name");
-
-        if ((vm != null) && vm.contains("Dalvik")) {
-
-            String abi = (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) ? Build.CPU_ABI : Build.SUPPORTED_ABIS[0];
-            String svgLibsPath = "amanithsvg-natives";
-
-            if (abi.equals("arm64-v8a")) {
-                if (System.getProperty("os.arch").startsWith("armv7")) {
-                    abi = "armeabi-v7a";
-                }
-            }
-
-            if (abi.equals("armeabi")) {
-                svgLibsPath += "/armeabi";
-            }
-            else
-            if (abi.equals("armeabi-v7a")) {
-                svgLibsPath += "/armeabi-v7a";
-            }
-            else
-            if (abi.equals("arm64-v8a")) {
-                svgLibsPath += "/arm64-v8a";
-            }
-            else
-            if (abi.equals("mips")) {
-                svgLibsPath += "/mips";
-            }
-            else
-            if (abi.equals("mips64")) {
-                svgLibsPath += "/mips64";
-            }
-            else
-            if (abi.equals("x86")) {
-                svgLibsPath += "/x86";
-            }
-            else
-            if (abi.equals("x86_64")) {
-                svgLibsPath += "/x86_64";
+        if (supported) {
+            if (resourceType == SVGTResourceType.Font) {
+                config.addFont(resources.openRawResource(aaptId), aaptId, fileName, hints);
             }
             else {
-                result = false;
-            }
-            // select the backend engine (SRE / GLE)
-            svgLibsPath += "/sre";
-            svgLibsPath += "/standalone/";
-
-            if (result) {
-                // load AmanithSVG library
-                result = loadSharedLibrary(svgLibsPath, "libAmanithSVG.so");
-                if (result) {
-                    // load AmanithSVG JNI wrapper
-                    result = loadSharedLibrary(svgLibsPath, "libAmanithSVGJNI.so");
-                }
+                config.addImage(resources.openRawResource(aaptId), aaptId, fileName);
             }
         }
+    }
+    // initialize AmanithSVG and load external resources
+    private void amanithsvgInit() {
 
-        return result;
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        SVGAssetsConfigAndroid config = new SVGAssetsConfigAndroid(metrics.widthPixels, metrics.heightPixels, metrics.xdpi);
+
+        // set curves quality (used by AmanithSVG geometric kernel to approximate curves with straight
+        // line segments (flattening); valid range is [1; 100], where 100 represents the best quality
+        config.setCurvesQuality(75);
+
+        // specify the system/user-agent language; this setting will affect the conditional rendering
+        // of <switch> elements and elements with 'systemLanguage' attribute specified
+        config.setLanguage("en");
+
+        // make external resources available to AmanithSVG; NB: all resources must be specified in
+        // advance before to call rendering-related functions, which are by definition tied to a thread
+        resourceAdd(config, R.raw.bebas_neue_regular, EnumSet.of(SVGTResourceHint.DefaultFantasy));
+        resourceAdd(config, R.raw.dancing_script_regular, EnumSet.of(SVGTResourceHint.DefaultCursive));
+        resourceAdd(config, R.raw.noto_mono_regular, EnumSet.of(SVGTResourceHint.DefaultMonospace,
+                                                                SVGTResourceHint.DefaultUIMonospace));
+        resourceAdd(config, R.raw.noto_sans_regular, EnumSet.of(SVGTResourceHint.DefaultSansSerif,
+                                                                SVGTResourceHint.DefaultUISansSerif,
+                                                                SVGTResourceHint.DefaultSystemUI,
+                                                                SVGTResourceHint.DefaultUIRounded));
+        resourceAdd(config, R.raw.noto_serif_regular, EnumSet.of(SVGTResourceHint.DefaultSerif,
+                                                                 SVGTResourceHint.DefaultUISerif));
+
+        // initialize AmanithSVG library
+        svg = new SVGAssetsAndroid(config);
     }
 
     private void fileChooseDialog() {
@@ -209,7 +177,7 @@ public class SvgViewerActivity extends AppCompatActivity {
             if (requestCode == REQUEST_LOAD) {
                 filePath = new String(data.getStringExtra(FileDialog.RESULT_PATH));
                 // create the view
-                view = new SvgViewerView(this, filePath);
+                view = new SvgViewerView(this, svg, filePath);
                 super.setContentView(view);
             }
         }
@@ -218,13 +186,18 @@ public class SvgViewerActivity extends AppCompatActivity {
         }
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
         super.onCreate(savedInstanceState);
         // load AmanithSVG native libraries, if needed
         if (!nativeLibsLoaded) {
-            nativeLibsLoaded = loadAmanithSVG();
+            nativeLibsLoaded = SVGAssetsAndroid.jniLibraryLoad(getAssets());
+            if (nativeLibsLoaded) {
+                // instantiate AmanithSVG for Android
+                amanithsvgInit();
+            }
         }
         if (nativeLibsLoaded) {
             view = null;
@@ -236,7 +209,24 @@ public class SvgViewerActivity extends AppCompatActivity {
     }
 
     @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
+    protected void onDestroy() {
+
+        super.onDestroy();
+        // NB: we don't call AmanithSVG.svgtDone because the application may only have moved in the
+        // background; by not terminating AmanithSVG here, we are sure that once moved back in
+        // foreground, the application (i.e. calls to AmanithSVG) will work without problems.
+        //
+        // AmanithSVG.svgtDone should be called when the application is really killed, but this
+        // implies the use of additional mechanisms to intercept the real termination
+        // (i.e. process killing) and is therefore left out of this example.
+        // However, it must be taken into account that AmanithSVG shared library implements a
+        // library destructor (i.e. __attribute__ ((destructor)) static void SoDestructor)
+        // that will call the svgtDone function by itself; so that, no matter what the application
+        // does, all allocated resources will be released.
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(@NonNull Menu menu) {
 
         // build the menu
         menu.add(0, OPEN_MENU_ITEM, 0, "Open...");
@@ -246,7 +236,7 @@ public class SvgViewerActivity extends AppCompatActivity {
     }
 
     @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
 
         // first check if the action can be handled by the view
         boolean result = view.viewerMenuOption(item.getItemId());
