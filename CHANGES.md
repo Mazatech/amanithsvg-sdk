@@ -12,7 +12,7 @@
 
 - Removed deprecated Direct3D 9 backend from Unity builds
 
-- `svgViewer` example have been have been improved from the point of view of compatibility with various building systems (CMake, Gradle)
+- `svgViewer` example have been improved from the point of view of compatibility with various building systems (CMake, Gradle)
 
 - `svg2bitmap` a new command line utility for Desktop platforms. It uses AmanithSVG API to convert single or multiple SVG files into PNG; it supports the generation of atlas too.
 
