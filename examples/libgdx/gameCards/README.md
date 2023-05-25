@@ -37,3 +37,8 @@ In order to run the example on iOS devices, be sure to have installed:
 - Apple Xcode
 - [RoboVM plugin for IntelliJ IDEA](http://robovm.mobidevelop.com/downloads/releases/idea/idea-2.3.18.zip) by following the [official documentation](http://robovm.mobidevelop.com)
 - then follow [official documentation](https://libgdx.com/wiki/start/import-and-running#ios) for running libGDX applications on iOS
+
+## Credits
+
+ - Sunny countryside backgrounds (gameBkg1.svg, gameBkg2.svg, gameBkg3.svg, gameBkg4.svg) have been downloaded from: [http://xoo.me/it/template/details/6960-4-sunny-countryside-vector-scenes](http://web.archive.org/web/20150404185343/http://xoo.me/it/template/details/6960-4-sunny-countryside-vector-scenes)
+ - Thanks to Juan Pablo del Peral (juan@huertatipografica.com.ar) for the Acme font, that is covered by the [SIL Open Font License, Version 1.1](http://scripts.sil.org/OFL)
