@@ -37,113 +37,116 @@ using System;
 using System.Collections;
 using UnityEngine;
 
-public class SVGTextureAtlasBehaviour : MonoBehaviour
+namespace SVGAssets
 {
-    private void DestroyDocument(SVGDocument document)
+    public class SVGTextureAtlasBehaviour : MonoBehaviour
     {
-        if (document != null)
+        private void DestroyDocument(SVGDocument document)
         {
-            document.Dispose();
-        }
-    }
-
-    private Texture2D DrawAtlas(string svgXml1, string svgXml2, string svgXml3, string svgXml4,
-                                uint texWidth, uint texHeight,
-                                Color clearColor,
-                                bool fastUpload)
-    {
-        Texture2D texture = null;
-        // create a drawing surface, with the same texture dimensions
-        SVGSurfaceUnity surface = SVGAssetsUnity.CreateSurface(texWidth, texHeight);
-        
-        if (surface != null)
-        {
-            // create the SVG documents
-            SVGDocument document1 = SVGAssetsUnity.CreateDocument(svgXml1);
-            SVGDocument document2 = SVGAssetsUnity.CreateDocument(svgXml2);
-            SVGDocument document3 = SVGAssetsUnity.CreateDocument(svgXml3);
-            SVGDocument document4 = SVGAssetsUnity.CreateDocument(svgXml4);
-
-            if ((document1 != null) && (document2 != null) && (document3 != null) && (document4 != null))
+            if (document != null)
             {
-                // draw the SVG document1 onto the surface
-                surface.Viewport = new SVGViewport(0.0f, 0.0f, texWidth / 2.0f, texHeight / 2.0f);
-                surface.Draw(document1, new SVGColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a), SVGRenderingQuality.Better);
-                // draw the SVG document2 onto the surface
-                surface.Viewport = new SVGViewport(texWidth / 2.0f, 0.0f, texWidth / 2.0f, texHeight / 2.0f);
-                surface.Draw(document2, null, SVGRenderingQuality.Better);
-                // draw the SVG document3 onto the surface
-                surface.Viewport = new SVGViewport(0.0f, texHeight / 2.0f, texWidth / 2.0f, texHeight / 2.0f);
-                surface.Draw(document3, null, SVGRenderingQuality.Better);
-                // draw the SVG document4 onto the surface
-                surface.Viewport = new SVGViewport(texWidth / 2.0f, texHeight / 2.0f, texWidth / 2.0f, texHeight / 2.0f);
-                surface.Draw(document4, null, SVGRenderingQuality.Better);
+                document.Dispose();
+            }
+        }
 
-                // create a 2D texture compatible with the drawing surface
-                if ((texture = surface.CreateCompatibleTexture(true, false)) != null)
+        private Texture2D DrawAtlas(string svgXml1, string svgXml2, string svgXml3, string svgXml4,
+                                    uint texWidth, uint texHeight,
+                                    Color clearColor,
+                                    bool fastUpload)
+        {
+            Texture2D texture = null;
+            // create a drawing surface, with the same texture dimensions
+            SVGSurfaceUnity surface = SVGAssetsUnity.CreateSurface(texWidth, texHeight);
+        
+            if (surface != null)
+            {
+                // create the SVG documents
+                SVGDocument document1 = SVGAssetsUnity.CreateDocument(svgXml1);
+                SVGDocument document2 = SVGAssetsUnity.CreateDocument(svgXml2);
+                SVGDocument document3 = SVGAssetsUnity.CreateDocument(svgXml3);
+                SVGDocument document4 = SVGAssetsUnity.CreateDocument(svgXml4);
+
+                if ((document1 != null) && (document2 != null) && (document3 != null) && (document4 != null))
                 {
-                    // copy the surface content into the texture
-                    if (fastUpload && Application.isPlaying)
+                    // draw the SVG document1 onto the surface
+                    surface.Viewport = new SVGViewport(0.0f, 0.0f, texWidth / 2.0f, texHeight / 2.0f);
+                    surface.Draw(document1, new SVGColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a), SVGRenderingQuality.Better);
+                    // draw the SVG document2 onto the surface
+                    surface.Viewport = new SVGViewport(texWidth / 2.0f, 0.0f, texWidth / 2.0f, texHeight / 2.0f);
+                    surface.Draw(document2, null, SVGRenderingQuality.Better);
+                    // draw the SVG document3 onto the surface
+                    surface.Viewport = new SVGViewport(0.0f, texHeight / 2.0f, texWidth / 2.0f, texHeight / 2.0f);
+                    surface.Draw(document3, null, SVGRenderingQuality.Better);
+                    // draw the SVG document4 onto the surface
+                    surface.Viewport = new SVGViewport(texWidth / 2.0f, texHeight / 2.0f, texWidth / 2.0f, texHeight / 2.0f);
+                    surface.Draw(document4, null, SVGRenderingQuality.Better);
+
+                    // create a 2D texture compatible with the drawing surface
+                    if ((texture = surface.CreateCompatibleTexture(true, false)) != null)
                     {
-                        _ = surface.CopyAndDestroy(texture);
-                    }
-                    else
-                    if (surface.Copy(texture) == SVGError.None)
-                    {
-                        // call Apply() so it's actually uploaded to the GPU
-                        texture.Apply(false, true);
+                        // copy the surface content into the texture
+                        if (fastUpload && Application.isPlaying)
+                        {
+                            _ = surface.CopyAndDestroy(texture);
+                        }
+                        else
+                        if (surface.Copy(texture) == SVGError.None)
+                        {
+                            // call Apply() so it's actually uploaded to the GPU
+                            texture.Apply(false, true);
+                        }
                     }
                 }
+
+                // destroy SVG documents
+                DestroyDocument(document1);
+                DestroyDocument(document2);
+                DestroyDocument(document3);
+                DestroyDocument(document4);
+
+                // destroy SVG surface
+                surface.Dispose();
             }
 
-            // destroy SVG documents
-            DestroyDocument(document1);
-            DestroyDocument(document2);
-            DestroyDocument(document3);
-            DestroyDocument(document4);
-
-            // destroy SVG surface
-            surface.Dispose();
+            // return the created texture, or null in case of errors
+            return texture;
         }
 
-        // return the created texture, or null in case of errors
-        return texture;
-    }
-
-    // Use this for initialization
-    void Start()
-    {
-        if ((SVGFile1 != null) && (SVGFile2 != null) && (SVGFile3 != null) && (SVGFile4 != null))
+        // Use this for initialization
+        void Start()
         {
-            Shader shader = Shader.Find("Sprites/Default");
+            if ((SVGFile1 != null) && (SVGFile2 != null) && (SVGFile3 != null) && (SVGFile4 != null))
+            {
+                Shader shader = Shader.Find("Sprites/Default");
 
-            if (shader != null)
-            {
-                GetComponent<Renderer>().material.shader = shader;
-                GetComponent<Renderer>().material.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
-                // set texture onto our material
-                GetComponent<Renderer>().material.mainTexture = DrawAtlas(SVGFile1.text, SVGFile2.text, SVGFile3.text, SVGFile4.text,
-                                                                          (uint)Math.Max(2, TextureWidth), (uint)Math.Max(2, TextureHeight),
-                                                                          ClearColor, FastUpload);
-            }
-            else
-            {
-                SVGAssetsUnity.LogWarning("SVGTextureAtlasBehaviour::Start cannot find Sprites/Default shader, so SVG rendering is skipped at all");
+                if (shader != null)
+                {
+                    GetComponent<Renderer>().material.shader = shader;
+                    GetComponent<Renderer>().material.color = new Color(1.0f, 1.0f, 1.0f, 1.0f);
+                    // set texture onto our material
+                    GetComponent<Renderer>().material.mainTexture = DrawAtlas(SVGFile1.text, SVGFile2.text, SVGFile3.text, SVGFile4.text,
+                                                                              (uint)Math.Max(2, TextureWidth), (uint)Math.Max(2, TextureHeight),
+                                                                              ClearColor, FastUpload);
+                }
+                else
+                {
+                    SVGAssetsUnity.LogWarning("SVGTextureAtlasBehaviour::Start cannot find Sprites/Default shader, so SVG rendering is skipped at all");
+                }
             }
         }
-    }
 
-    // Update is called once per frame
-    void Update()
-    {
-    }
+        // Update is called once per frame
+        void Update()
+        {
+        }
 
-    public TextAsset SVGFile1 = null;
-    public TextAsset SVGFile2 = null;
-    public TextAsset SVGFile3 = null;
-    public TextAsset SVGFile4 = null;
-    public int TextureWidth = 512;
-    public int TextureHeight = 512;
-    public Color ClearColor = new Color(1, 1, 1, 1);
-    public bool FastUpload = true;
+        public TextAsset SVGFile1 = null;
+        public TextAsset SVGFile2 = null;
+        public TextAsset SVGFile3 = null;
+        public TextAsset SVGFile4 = null;
+        public int TextureWidth = 512;
+        public int TextureHeight = 512;
+        public Color ClearColor = new Color(1, 1, 1, 1);
+        public bool FastUpload = true;
+    }
 }

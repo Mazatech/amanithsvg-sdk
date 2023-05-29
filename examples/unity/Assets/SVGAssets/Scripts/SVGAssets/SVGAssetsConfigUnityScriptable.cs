@@ -34,27 +34,27 @@
 ** 
 ****************************************************************************/
 #if UNITY_EDITOR || UNITY_EDITOR_WIN || UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_STANDALONE_WIN || UNITY_STANDALONE_LINUX || UNITY_STANDALONE || UNITY_WII || UNITY_IOS || UNITY_IPHONE || UNITY_ANDROID || UNITY_PS4 || UNITY_XBOXONE || UNITY_TIZEN || UNITY_TVOS || UNITY_WSA || UNITY_WSA_10_0 || UNITY_WINRT || UNITY_WINRT_10_0 || UNITY_WEBGL || UNITY_FACEBOOK || UNITY_ADS || UNITY_ANALYTICS
-#define UNITY_ENGINE
+    #define UNITY_ENGINE
 #endif
 
 #if UNITY_2_6
-#define UNITY_2_X
-#define UNITY_2_PLUS
+    #define UNITY_2_X
+    #define UNITY_2_PLUS
 #elif UNITY_3_0 || UNITY_3_1 || UNITY_3_2 || UNITY_3_3 || UNITY_3_4 || UNITY_3_5
-#define UNITY_3_X
-#define UNITY_2_PLUS
-#define UNITY_3_PLUS
+    #define UNITY_3_X
+    #define UNITY_2_PLUS
+    #define UNITY_3_PLUS
 #elif UNITY_4_0 || UNITY_4_1 || UNITY_4_2 || UNITY_4_3 || UNITY_4_4 || UNITY_4_5 || UNITY_4_6 || UNITY_4_7 || UNITY_4_8 || UNITY_4_9
-#define UNITY_4_X
-#define UNITY_2_PLUS
-#define UNITY_3_PLUS
-#define UNITY_4_PLUS
+    #define UNITY_4_X
+    #define UNITY_2_PLUS
+    #define UNITY_3_PLUS
+    #define UNITY_4_PLUS
 #elif UNITY_5_0 || UNITY_5_1 || UNITY_5_2 || UNITY_5_3 || UNITY_5_4 || UNITY_5_4_OR_NEWER
-#define UNITY_5_X
-#define UNITY_2_PLUS
-#define UNITY_3_PLUS
-#define UNITY_4_PLUS
-#define UNITY_5_PLUS
+    #define UNITY_5_X
+    #define UNITY_2_PLUS
+    #define UNITY_3_PLUS
+    #define UNITY_4_PLUS
+    #define UNITY_5_PLUS
 #endif
 
 #if UNITY_ENGINE
@@ -65,41 +65,44 @@ using UnityEngine;
     using UnityEditor;
 #endif
 
-// Create a new type of Settings Asset.
-[Serializable]
-public class SVGAssetsConfigUnityScriptable : ScriptableObject
+namespace SVGAssets
 {
-#if UNITY_EDITOR
-    private static SVGAssetsConfigUnityScriptable GetOrCreateConfig()
+    // Create a new type of Settings Asset.
+    [Serializable]
+    public class SVGAssetsConfigUnityScriptable : ScriptableObject
     {
-        SVGAssetsConfigUnityScriptable settings = AssetDatabase.LoadAssetAtPath<SVGAssetsConfigUnityScriptable>(s_configAssetPath);
-
-        if (settings == null)
+    #if UNITY_EDITOR
+        private static SVGAssetsConfigUnityScriptable GetOrCreateConfig()
         {
-            settings = CreateInstance<SVGAssetsConfigUnityScriptable>();
-            // create a new SVGAssets configuration for Unity, using actual screen metrics
-            settings.Config = new SVGAssetsConfigUnity(SVGAssetsUnity.ScreenWidth, SVGAssetsUnity.ScreenHeight, SVGAssetsUnity.ScreenDpi);
-            // save the new configuration asset/file
-            AssetDatabase.CreateAsset(settings, s_configAssetPath);
-            AssetDatabase.SaveAssets();
+            SVGAssetsConfigUnityScriptable settings = AssetDatabase.LoadAssetAtPath<SVGAssetsConfigUnityScriptable>(s_configAssetPath);
+
+            if (settings == null)
+            {
+                settings = CreateInstance<SVGAssetsConfigUnityScriptable>();
+                // create a new SVGAssets configuration for Unity, using actual screen metrics
+                settings.Config = new SVGAssetsConfigUnity(SVGAssetsUnity.ScreenWidth, SVGAssetsUnity.ScreenHeight, SVGAssetsUnity.ScreenDpi);
+                // save the new configuration asset/file
+                AssetDatabase.CreateAsset(settings, s_configAssetPath);
+                AssetDatabase.SaveAssets();
+            }
+
+            return settings;
         }
 
-        return settings;
+        public static SerializedObject GetSerializedConfig()
+        {
+            return new SerializedObject(GetOrCreateConfig());
+        }
+
+    #endif // UNITY_EDITOR
+
+        internal static readonly string s_configAssetName = "SVGAssetsConfigUnity";
+        private static readonly string s_configAssetPath = "Assets/SVGAssets/Resources/" + s_configAssetName + ".asset";
+
+        // SVGAssets configuration for Unity
+        [SerializeField]
+        public SVGAssetsConfigUnity Config;
     }
-
-    public static SerializedObject GetSerializedConfig()
-    {
-        return new SerializedObject(GetOrCreateConfig());
-    }
-
-#endif // UNITY_EDITOR
-
-    internal static readonly string s_configAssetName = "SVGAssetsConfigUnity";
-    private static readonly string s_configAssetPath = "Assets/SVGAssets/Resources/" + s_configAssetName + ".asset";
-
-    // SVGAssets configuration for Unity
-    [SerializeField]
-    public SVGAssetsConfigUnity Config;
 }
 
 #endif  // UNITY_ENGINE

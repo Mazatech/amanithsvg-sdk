@@ -35,70 +35,74 @@
 ****************************************************************************/
 using UnityEngine;
 using UnityEditor;
+using SVGAssets;
 
-[ CustomEditor(typeof(GameCardBehaviour)) ]
-public class GameCardEditor : Editor
-{
-    private void DrawInspector(GameCardBehaviour card)
+namespace MemoryGameScene {
+
+    [ CustomEditor(typeof(GameCardBehaviour)) ]
+    public class GameCardEditor : Editor
     {
-        bool needSpriteUpdate = false;
-        bool active = EditorGUILayout.Toggle(new GUIContent("Active", ""), card.Active);
-        bool backSide = EditorGUILayout.Toggle(new GUIContent("Back side", ""), card.BackSide);
-        GameCardType animalType = (GameCardType)EditorGUILayout.EnumPopup("Animal type", card.AnimalType);
-        GameBehaviour game = EditorGUILayout.ObjectField("Game manager", card.Game, typeof(GameBehaviour), true) as GameBehaviour;
-
-        // update active flag, if needed
-        if (active != card.Active)
+        private void DrawInspector(GameCardBehaviour card)
         {
-            card.Active = active;
-            SVGUtils.MarkSceneDirty();
-            if (card.Game != null)
+            bool needSpriteUpdate = false;
+            bool active = EditorGUILayout.Toggle(new GUIContent("Active", ""), card.Active);
+            bool backSide = EditorGUILayout.Toggle(new GUIContent("Back side", ""), card.BackSide);
+            GameCardType animalType = (GameCardType)EditorGUILayout.EnumPopup("Animal type", card.AnimalType);
+            GameBehaviour game = EditorGUILayout.ObjectField("Game manager", card.Game, typeof(GameBehaviour), true) as GameBehaviour;
+
+            // update active flag, if needed
+            if (active != card.Active)
             {
-                if (card.Active)
+                card.Active = active;
+                SVGUtils.MarkSceneDirty();
+                if (card.Game != null)
                 {
-                    card.Game.ShowCard(card);
-                }
-                else
-                {
-                    card.Game.HideCard(card);
+                    if (card.Active)
+                    {
+                        card.Game.ShowCard(card);
+                    }
+                    else
+                    {
+                        card.Game.HideCard(card);
+                    }
                 }
             }
-        }
-        // update back side flag, if needed
-        if (backSide != card.BackSide)
-        {
-            card.BackSide = backSide;
-            SVGUtils.MarkSceneDirty();
-            needSpriteUpdate = true;
-        }
-        // update animal/card type, if needed
-        if (animalType != card.AnimalType)
-        {
-            card.AnimalType = animalType;
-            SVGUtils.MarkSceneDirty();
-            needSpriteUpdate = true;
-        }
-        // update game manager, if needed
-        if (game != card.Game)
-        {
-            card.Game = game;
-            SVGUtils.MarkSceneDirty();
+            // update back side flag, if needed
+            if (backSide != card.BackSide)
+            {
+                card.BackSide = backSide;
+                SVGUtils.MarkSceneDirty();
+                needSpriteUpdate = true;
+            }
+            // update animal/card type, if needed
+            if (animalType != card.AnimalType)
+            {
+                card.AnimalType = animalType;
+                SVGUtils.MarkSceneDirty();
+                needSpriteUpdate = true;
+            }
+            // update game manager, if needed
+            if (game != card.Game)
+            {
+                card.Game = game;
+                SVGUtils.MarkSceneDirty();
+            }
+
+            if (needSpriteUpdate && (card.Game != null))
+            {
+                card.Game.UpdateCardSprite(card);
+            }
         }
 
-        if (needSpriteUpdate && (card.Game != null))
+        public override void OnInspectorGUI()
         {
-            card.Game.UpdateCardSprite(card);
-        }
-    }
-
-    public override void OnInspectorGUI()
-    {
-        // get the target object
-        GameCardBehaviour card = target as GameCardBehaviour;
+            // get the target object
+            GameCardBehaviour card = target as GameCardBehaviour;
         
-        if (card != null)
-        {
-            DrawInspector(card);
+            if (card != null)
+            {
+                DrawInspector(card);
+            }
         }
     }
 }

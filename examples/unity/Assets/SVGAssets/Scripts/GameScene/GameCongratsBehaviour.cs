@@ -38,81 +38,85 @@ using UnityEngine;
 #if UNITY_EDITOR
     using UnityEditor;
 #endif
+using SVGAssets;
 
-public class GameCongratsBehaviour : MonoBehaviour {
+namespace MemoryGameScene
+{
+    public class GameCongratsBehaviour : MonoBehaviour {
 
-    void OnDestroy()
-    {
-        if (_document != null)
+        void OnDestroy()
         {
-            // release SVG document
-            _document.Dispose();
-        }
-    }
-
-    public void Resize(int newScreenWidth,
-                       int newScreenHeight)
-    {
-        // load the SVG document, if needed
-        if ((_document == null) && (SVGFile != null))
-        {
-            _document = SVGAssetsUnity.CreateDocument(SVGFile.text);
+            if (_document != null)
+            {
+                // release SVG document
+                _document.Dispose();
+            }
         }
 
-        if (_document != null)
+        public void Resize(int newScreenWidth,
+                           int newScreenHeight)
         {
-            // congratulation SVG is squared by design, we choose to generate a texture with
-            // a size equal to 3/5 of the smallest screen dimension; e.g. on a 1920 x 1080
-            // device screen, texture will have a size of (1080 * 3) / 5 = 648 pixels
-            uint size = (uint)(Math.Min(newScreenWidth, newScreenHeight) * 3) / 5;
-            // create a drawing surface
-            SVGSurfaceUnity surface = SVGAssetsUnity.CreateSurface(size, size);
-            // draw SVG and generate the relative texture
-            Texture2D texture = surface.DrawTexture(_document, SVGColor.Clear, SVGRenderingQuality.Better, true);
-            // create the sprite out of the texture
-            gameObject.GetComponent<SpriteRenderer>().sprite = SVGAssetsUnity.CreateSprite(texture, new Vector2(0.5f, 0.5f));
-            // destroy the temporary drawing surface
-            surface.Dispose();
-        }
-    }
+            // load the SVG document, if needed
+            if ((_document == null) && (SVGFile != null))
+            {
+                _document = SVGAssetsUnity.CreateDocument(SVGFile.text);
+            }
 
-#if UNITY_EDITOR
-
-    // Ensure basic requirements
-    private SpriteRenderer RequirementsCheck()
-    {
-        // a SpriteRenderer is mandatory
-        SpriteRenderer renderer = gameObject.GetComponent<SpriteRenderer>();
-        if (renderer == null)
-        {
-            // NB: the default 'sortingOrder' property value will be 0, that is just fine because
-            // it means that this congratulation object/sprite will be displayed upon the background
-            renderer = gameObject.AddComponent<SpriteRenderer>();   
+            if (_document != null)
+            {
+                // congratulation SVG is squared by design, we choose to generate a texture with
+                // a size equal to 3/5 of the smallest screen dimension; e.g. on a 1920 x 1080
+                // device screen, texture will have a size of (1080 * 3) / 5 = 648 pixels
+                uint size = (uint)(Math.Min(newScreenWidth, newScreenHeight) * 3) / 5;
+                // create a drawing surface
+                SVGSurfaceUnity surface = SVGAssetsUnity.CreateSurface(size, size);
+                // draw SVG and generate the relative texture
+                Texture2D texture = surface.DrawTexture(_document, SVGColor.Clear, SVGRenderingQuality.Better, true);
+                // create the sprite out of the texture
+                gameObject.GetComponent<SpriteRenderer>().sprite = SVGAssetsUnity.CreateSprite(texture, new Vector2(0.5f, 0.5f));
+                // destroy the temporary drawing surface
+                surface.Dispose();
+            }
         }
 
-        return renderer;
-    }
+    #if UNITY_EDITOR
+
+        // Ensure basic requirements
+        private SpriteRenderer RequirementsCheck()
+        {
+            // a SpriteRenderer is mandatory
+            SpriteRenderer renderer = gameObject.GetComponent<SpriteRenderer>();
+            if (renderer == null)
+            {
+                // NB: the default 'sortingOrder' property value will be 0, that is just fine because
+                // it means that this congratulation object/sprite will be displayed upon the background
+                renderer = gameObject.AddComponent<SpriteRenderer>();   
+            }
+
+            return renderer;
+        }
     
-    // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
-    // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
-    void Reset()
-    {
-        SpriteRenderer renderer = RequirementsCheck();
-        if (renderer == null)
+        // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
+        // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
+        void Reset()
         {
-            EditorUtility.DisplayDialog("Incompatible game object",
-                                        string.Format("In order to work properly, the component {0} requires the presence of a SpriteRenderer component", GetType()),
-                                        "Ok");
+            SpriteRenderer renderer = RequirementsCheck();
+            if (renderer == null)
+            {
+                EditorUtility.DisplayDialog("Incompatible game object",
+                                            string.Format("In order to work properly, the component {0} requires the presence of a SpriteRenderer component", GetType()),
+                                            "Ok");
+            }
+            SVGFile = null;
+            _document = null;
         }
-        SVGFile = null;
-        _document = null;
+
+    #endif  // UNITY_EDITOR
+
+        // SVG to be displayed when the player wins.
+        public TextAsset SVGFile;
+        // The loaded SVG document.
+        [NonSerialized]
+        private SVGDocument _document = null;
     }
-
-#endif  // UNITY_EDITOR
-
-    // SVG to be displayed when the player wins.
-    public TextAsset SVGFile;
-    // The loaded SVG document.
-    [NonSerialized]
-    private SVGDocument _document = null;
 }

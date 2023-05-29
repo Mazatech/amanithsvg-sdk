@@ -36,112 +36,116 @@
 using System;
 using UnityEngine;
 
-[ExecuteInEditMode]
-public class SVGTextureBehaviour : MonoBehaviour
+namespace SVGAssets
 {
-    private Texture2D DrawSVG(string svgXml,
-                              uint texWidth, uint texHeight,
-                              Color clearColor,
-                              bool fastUpload)
-    {
-        Texture2D texture = null;
-        // create a drawing surface, with the same texture dimensions
-        SVGSurfaceUnity surface = SVGAssetsUnity.CreateSurface(texWidth, texHeight);
 
-        if (surface != null)
+    [ExecuteInEditMode]
+    public class SVGTextureBehaviour : MonoBehaviour
+    {
+        private Texture2D DrawSVG(string svgXml,
+                                  uint texWidth, uint texHeight,
+                                  Color clearColor,
+                                  bool fastUpload)
         {
-            // create the SVG document
-            SVGDocument document = SVGAssetsUnity.CreateDocument(svgXml);
-            if (document != null)
+            Texture2D texture = null;
+            // create a drawing surface, with the same texture dimensions
+            SVGSurfaceUnity surface = SVGAssetsUnity.CreateSurface(texWidth, texHeight);
+
+            if (surface != null)
             {
-                // draw the SVG document onto the surface
-                if (surface.Draw(document, new SVGColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a), SVGRenderingQuality.Better) == SVGError.None)
+                // create the SVG document
+                SVGDocument document = SVGAssetsUnity.CreateDocument(svgXml);
+                if (document != null)
                 {
-                    // create a 2D texture compatible with the drawing surface
-                    if ((texture = surface.CreateCompatibleTexture(true, false)) != null)
+                    // draw the SVG document onto the surface
+                    if (surface.Draw(document, new SVGColor(clearColor.r, clearColor.g, clearColor.b, clearColor.a), SVGRenderingQuality.Better) == SVGError.None)
                     {
-                        // copy the surface content into the texture
-                        if (fastUpload && Application.isPlaying)
+                        // create a 2D texture compatible with the drawing surface
+                        if ((texture = surface.CreateCompatibleTexture(true, false)) != null)
                         {
-                            _ = surface.CopyAndDestroy(texture);
-                        }
-                        else
-                        if (surface.Copy(texture) == SVGError.None)
-                        {
-                            // call Apply() so it's actually uploaded to the GPU
-                            texture.Apply(false, true);
+                            // copy the surface content into the texture
+                            if (fastUpload && Application.isPlaying)
+                            {
+                                _ = surface.CopyAndDestroy(texture);
+                            }
+                            else
+                            if (surface.Copy(texture) == SVGError.None)
+                            {
+                                // call Apply() so it's actually uploaded to the GPU
+                                texture.Apply(false, true);
+                            }
                         }
                     }
+                    // destroy SVG document
+                    document.Dispose();
                 }
-                // destroy SVG document
-                document.Dispose();
+                // destroy SVG surface
+                surface.Dispose();
             }
-            // destroy SVG surface
-            surface.Dispose();
+
+            // return the created texture, or null in case of errors
+            return texture;
         }
 
-        // return the created texture, or null in case of errors
-        return texture;
-    }
-
-    private void EnsureMaterialProperties(Material m)
-    {
-        m.shader = Shader.Find("Sprites/Default");
-        m.color = Color.white;
-    }
-
-    private void DrawSVG(Material m)
-    {
-        if (SVGFile != null)
+        private void EnsureMaterialProperties(Material m)
         {
-            m.mainTexture = DrawSVG(SVGFile.text,
-                                    // we want at least a 1x1 texture
-                                    (uint)Math.Max(1, TextureWidth), (uint)Math.Max(1, TextureHeight),
-                                    ClearColor, FastUpload);
+            m.shader = Shader.Find("Sprites/Default");
+            m.color = Color.white;
         }
-    }
 
-    // Use this for initialization
-    void Start()
-    {
-        if (Application.isPlaying)
+        private void DrawSVG(Material m)
         {
-            Renderer renderer = gameObject.GetComponent<Renderer>();
-            // ensure basic material properties for the display of a simple texture
-            EnsureMaterialProperties(renderer.material);
-            // draw SVG and assing the texture
-            DrawSVG(renderer.material);
-        }
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-    #if UNITY_EDITOR
-        if (!Application.isPlaying)
-        {
-            // if texture/sprite have not yet been generated, do it
-            Renderer renderer = gameObject.GetComponent<Renderer>();
-            if ((renderer != null) && (renderer.sharedMaterial.mainTexture == null))
+            if (SVGFile != null)
             {
-                // allocate a new material, in order to avoid the warning message
-                // "Instantiating material due to calling renderer.material during edit mode.
-                //  This will leak materials into the scene.
-                //  You most likely want to use renderer.sharedMaterial instead "
-                Material tmp = new Material(renderer.sharedMaterial);
-                // ensure basic material properties for the display of a simple texture
-                EnsureMaterialProperties(tmp);
-                // draw SVG and assing the texture
-                DrawSVG(tmp);
-                renderer.sharedMaterial = tmp;
+                m.mainTexture = DrawSVG(SVGFile.text,
+                                        // we want at least a 1x1 texture
+                                        (uint)Math.Max(1, TextureWidth), (uint)Math.Max(1, TextureHeight),
+                                        ClearColor, FastUpload);
             }
         }
-    #endif
-    }
 
-    public TextAsset SVGFile = null;
-    public int TextureWidth = 512;
-    public int TextureHeight = 512;
-    public Color ClearColor = Color.white;
-    public bool FastUpload = true;
+        // Use this for initialization
+        void Start()
+        {
+            if (Application.isPlaying)
+            {
+                Renderer renderer = gameObject.GetComponent<Renderer>();
+                // ensure basic material properties for the display of a simple texture
+                EnsureMaterialProperties(renderer.material);
+                // draw SVG and assing the texture
+                DrawSVG(renderer.material);
+            }
+        }
+
+        // Update is called once per frame
+        void Update()
+        {
+        #if UNITY_EDITOR
+            if (!Application.isPlaying)
+            {
+                // if texture/sprite have not yet been generated, do it
+                Renderer renderer = gameObject.GetComponent<Renderer>();
+                if ((renderer != null) && (renderer.sharedMaterial.mainTexture == null))
+                {
+                    // allocate a new material, in order to avoid the warning message
+                    // "Instantiating material due to calling renderer.material during edit mode.
+                    //  This will leak materials into the scene.
+                    //  You most likely want to use renderer.sharedMaterial instead "
+                    Material tmp = new Material(renderer.sharedMaterial);
+                    // ensure basic material properties for the display of a simple texture
+                    EnsureMaterialProperties(tmp);
+                    // draw SVG and assing the texture
+                    DrawSVG(tmp);
+                    renderer.sharedMaterial = tmp;
+                }
+            }
+        #endif
+        }
+
+        public TextAsset SVGFile = null;
+        public int TextureWidth = 512;
+        public int TextureHeight = 512;
+        public Color ClearColor = Color.white;
+        public bool FastUpload = true;
+    }
 }

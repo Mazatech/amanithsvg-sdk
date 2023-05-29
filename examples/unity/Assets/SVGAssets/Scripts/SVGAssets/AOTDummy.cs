@@ -36,13 +36,16 @@
 using System;
 using UnityEngine;
 
-#if UNITY_IPHONE
-// avoid "ExecutionEngineException: Attempting to JIT compile method '...' while running with --aot-only
-public static class AOTDummy
+namespace SVGAssets
 {
-    public static void Dummy()
+    #if UNITY_IPHONE
+    // avoid "ExecutionEngineException: Attempting to JIT compile method '...' while running with --aot-only
+    public static class AOTDummy
     {
-        System.Collections.Generic.Dictionary<SVGSpriteRef, int> dummy0;
+        public static void Dummy()
+        {
+            System.Collections.Generic.Dictionary<SVGSpriteRef, int> dummy0;
+        }
     }
+    #endif
 }
-#endif

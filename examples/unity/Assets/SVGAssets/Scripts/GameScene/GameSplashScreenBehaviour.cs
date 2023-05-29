@@ -38,89 +38,93 @@ using UnityEngine;
 #if UNITY_EDITOR
     using UnityEditor;
 #endif
+using SVGAssets;
 
-public class GameSplashScreenBehaviour : MonoBehaviour {
+namespace MemoryGameScene
+{
+    public class GameSplashScreenBehaviour : MonoBehaviour {
 
-    void OnDestroy()
-    {
-        if (_document != null)
+        void OnDestroy()
         {
-            // release SVG document
-            _document.Dispose();
-        }
-    }
-
-    public void Resize(int newScreenWidth,
-                       int newScreenHeight)
-    {
-        // load the SVG document, if needed
-        if ((_document == null) && (SVGFile != null))
-        {
-            _document = SVGAssetsUnity.CreateDocument(SVGFile.text);
+            if (_document != null)
+            {
+                // release SVG document
+                _document.Dispose();
+            }
         }
 
-        if (_document != null)
+        public void Resize(int newScreenWidth,
+                            int newScreenHeight)
         {
-            // get 'viewBox' dimensions
-            float viewW = _document.Viewport.Width;
-            float viewH = _document.Viewport.Height;
-            // keep the SVG aspect ratio
-            float sx = newScreenWidth / viewW;
-            float sy = newScreenHeight / viewH;
-            // keep 2% border on each side
-            float scaleMin = Math.Min(sx, sy) * 0.96f;
-            // and at the same time we fit the screen
-            uint texW = (uint)Math.Round(viewW * scaleMin);
-            uint texH = (uint)Math.Round(viewH * scaleMin);
+            // load the SVG document, if needed
+            if ((_document == null) && (SVGFile != null))
+            {
+                _document = SVGAssetsUnity.CreateDocument(SVGFile.text);
+            }
 
-            // create a drawing surface
-            SVGSurfaceUnity surface = SVGAssetsUnity.CreateSurface(texW, texH);
-            // draw SVG and generate the relative texture
-            Texture2D texture = surface.DrawTexture(_document, SVGColor.Clear, SVGRenderingQuality.Better, true);
-            // create the sprite out of the texture
-            gameObject.GetComponent<SpriteRenderer>().sprite = SVGAssetsUnity.CreateSprite(texture, new Vector2(0.5f, 0.5f));
-            // destroy the temporary drawing surface
-            surface.Dispose();
-        }
-    }
+            if (_document != null)
+            {
+                // get 'viewBox' dimensions
+                float viewW = _document.Viewport.Width;
+                float viewH = _document.Viewport.Height;
+                // keep the SVG aspect ratio
+                float sx = newScreenWidth / viewW;
+                float sy = newScreenHeight / viewH;
+                // keep 2% border on each side
+                float scaleMin = Math.Min(sx, sy) * 0.96f;
+                // and at the same time we fit the screen
+                uint texW = (uint)Math.Round(viewW * scaleMin);
+                uint texH = (uint)Math.Round(viewH * scaleMin);
 
-#if UNITY_EDITOR
-
-    // Ensure basic requirements
-    private SpriteRenderer RequirementsCheck()
-    {
-        // a SpriteRenderer is mandatory
-        SpriteRenderer renderer = gameObject.GetComponent<SpriteRenderer>();
-        if (renderer == null)
-        {
-            // NB: the default 'sortingOrder' property value will be 0, that is just fine because
-            // it means that this congratulation object/sprite will be displayed upon the background
-            renderer = gameObject.AddComponent<SpriteRenderer>();   
+                // create a drawing surface
+                SVGSurfaceUnity surface = SVGAssetsUnity.CreateSurface(texW, texH);
+                // draw SVG and generate the relative texture
+                Texture2D texture = surface.DrawTexture(_document, SVGColor.Clear, SVGRenderingQuality.Better, true);
+                // create the sprite out of the texture
+                gameObject.GetComponent<SpriteRenderer>().sprite = SVGAssetsUnity.CreateSprite(texture, new Vector2(0.5f, 0.5f));
+                // destroy the temporary drawing surface
+                surface.Dispose();
+            }
         }
 
-        return renderer;
-    }
+    #if UNITY_EDITOR
+
+        // Ensure basic requirements
+        private SpriteRenderer RequirementsCheck()
+        {
+            // a SpriteRenderer is mandatory
+            SpriteRenderer renderer = gameObject.GetComponent<SpriteRenderer>();
+            if (renderer == null)
+            {
+                // NB: the default 'sortingOrder' property value will be 0, that is just fine because
+                // it means that this congratulation object/sprite will be displayed upon the background
+                renderer = gameObject.AddComponent<SpriteRenderer>();   
+            }
+
+            return renderer;
+        }
     
-    // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
-    // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
-    void Reset()
-    {
-        SpriteRenderer renderer = RequirementsCheck();
-        if (renderer == null)
+        // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
+        // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
+        void Reset()
         {
-            EditorUtility.DisplayDialog("Incompatible game object",
-                                        string.Format("In order to work properly, the component {0} requires the presence of a SpriteRenderer component", GetType()),
-                                        "Ok");
+            SpriteRenderer renderer = RequirementsCheck();
+            if (renderer == null)
+            {
+                EditorUtility.DisplayDialog("Incompatible game object",
+                                            string.Format("In order to work properly, the component {0} requires the presence of a SpriteRenderer component", GetType()),
+                                            "Ok");
+            }
+            SVGFile = null;
+            _document = null;
         }
-        SVGFile = null;
-        _document = null;
+
+    #endif  // UNITY_EDITOR
+
+        // The "Powered by AmanithSVG" logo.
+        public TextAsset SVGFile;
+        // The loaded SVG document.
+        [NonSerialized]
+        private SVGDocument _document = null;
     }
-
-#endif  // UNITY_EDITOR
-
-    // The "Powered by AmanithSVG" logo.
-    public TextAsset SVGFile;
-    // The loaded SVG document.
-    [NonSerialized]
-    private SVGDocument _document = null;
 }

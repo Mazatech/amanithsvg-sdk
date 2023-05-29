@@ -38,76 +38,79 @@ using UnityEngine;
     using UnityEditor;
 #endif
 
-[ExecuteInEditMode]
-public class SVGCanvasBehaviour : MonoBehaviour
+namespace SVGAssets
 {
-    public void EnsureCanvasAssigned()
+    [ExecuteInEditMode]
+    public class SVGCanvasBehaviour : MonoBehaviour
     {
-        if (m_UIAtlas != null)
+        public void EnsureCanvasAssigned()
         {
-            Canvas canvas = GetComponent<Canvas>();
-            if (canvas != null)
+            if (m_UIAtlas != null)
             {
-                m_UIAtlas.CanvasScaleFactor = canvas.scaleFactor;
-                // we assign the Name property, so we can check if the canvas object has been renamed by the user
-                m_UIAtlas.Name = canvas.name;
+                Canvas canvas = GetComponent<Canvas>();
+                if (canvas != null)
+                {
+                    m_UIAtlas.CanvasScaleFactor = canvas.scaleFactor;
+                    // we assign the Name property, so we can check if the canvas object has been renamed by the user
+                    m_UIAtlas.Name = canvas.name;
+                }
             }
         }
-    }
 
-    void Start()
-    {
-        EnsureCanvasAssigned();
-    }
+        void Start()
+        {
+            EnsureCanvasAssigned();
+        }
     
-    void Update()
-    {
-    }
-
-    public SVGUIAtlas UIAtlas
-    {
-        get
+        void Update()
         {
-            return m_UIAtlas;
         }
-    }
 
-#if UNITY_EDITOR
-    // this script works with orthographic cameras only
-    private bool RequirementsCheck()
-    {
-        if (GetComponent<Canvas>() == null)
+        public SVGUIAtlas UIAtlas
         {
-            EditorUtility.DisplayDialog("Incompatible game object",
-                                        string.Format("In order to work properly, the component {0} must be attached to a canvas", GetType()),
-                                        "Ok");
-            DestroyImmediate(this);
-            return false;
-        }
-        return true;
-    }
-
-    // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
-    // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
-    void Reset()
-    {
-        if (RequirementsCheck())
-        {
-            if (m_UIAtlas == null)
+            get
             {
-                m_UIAtlas = ScriptableObject.CreateInstance<SVGUIAtlas>();
-                m_UIAtlas.OutputFolder = SVGCanvasBehaviour.LastOutputFolder;
-                EnsureCanvasAssigned();
+                return m_UIAtlas;
             }
         }
+
+    #if UNITY_EDITOR
+        // this script works with orthographic cameras only
+        private bool RequirementsCheck()
+        {
+            if (GetComponent<Canvas>() == null)
+            {
+                EditorUtility.DisplayDialog("Incompatible game object",
+                                            string.Format("In order to work properly, the component {0} must be attached to a canvas", GetType()),
+                                            "Ok");
+                DestroyImmediate(this);
+                return false;
+            }
+            return true;
+        }
+
+        // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
+        // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
+        void Reset()
+        {
+            if (RequirementsCheck())
+            {
+                if (m_UIAtlas == null)
+                {
+                    m_UIAtlas = ScriptableObject.CreateInstance<SVGUIAtlas>();
+                    m_UIAtlas.OutputFolder = SVGCanvasBehaviour.LastOutputFolder;
+                    EnsureCanvasAssigned();
+                }
+            }
+        }
+    #endif
+
+        [SerializeField]
+        private SVGUIAtlas m_UIAtlas = null;
+
+    #if UNITY_EDITOR
+        [SerializeField]
+        static public string LastOutputFolder = "Assets";
+    #endif
     }
-#endif
-
-    [SerializeField]
-    private SVGUIAtlas m_UIAtlas = null;
-
-#if UNITY_EDITOR
-    [SerializeField]
-    static public string LastOutputFolder = "Assets";
-#endif
 }

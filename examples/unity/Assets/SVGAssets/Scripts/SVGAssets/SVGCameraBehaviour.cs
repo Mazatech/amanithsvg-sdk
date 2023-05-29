@@ -39,121 +39,124 @@ using UnityEngine;
     using UnityEditor;
 #endif
 
-[ExecuteInEditMode]
-public class SVGCameraBehaviour : MonoBehaviour
+namespace SVGAssets
 {
-    private void Resize(int screenWidth, int screenHeight, bool shotEvent)
+    [ExecuteInEditMode]
+    public class SVGCameraBehaviour : MonoBehaviour
     {
-        Camera camera = GetComponent<Camera>();
-        // map the camera rectangle to the whole screen; NB: we handle orthographic cameras only
-        camera.aspect = (float)screenWidth / screenHeight;
-        camera.orthographicSize = (screenHeight * camera.rect.height) / (SVGAssetsUnity.SPRITE_PIXELS_PER_UNIT * 2);
-        // keep track of current device dimensions
-        _lastScreenWidth = screenWidth;
-        _lastScreenHeight = screenHeight;
-        // call OnResize handlers
-        if ((OnResize != null) && shotEvent)
+        private void Resize(int screenWidth, int screenHeight, bool shotEvent)
         {
-            OnResize(screenWidth, screenHeight);
+            Camera camera = GetComponent<Camera>();
+            // map the camera rectangle to the whole screen; NB: we handle orthographic cameras only
+            camera.aspect = (float)screenWidth / screenHeight;
+            camera.orthographicSize = (screenHeight * camera.rect.height) / (SVGAssetsUnity.SPRITE_PIXELS_PER_UNIT * 2);
+            // keep track of current device dimensions
+            _lastScreenWidth = screenWidth;
+            _lastScreenHeight = screenHeight;
+            // call OnResize handlers
+            if ((OnResize != null) && shotEvent)
+            {
+                OnResize(screenWidth, screenHeight);
+            }
         }
-    }
 
-    public void Resize(bool shotEvent)
-    {
-        // update camera aspect ratio and orthographic size
-        Resize((int)SVGAssetsUnity.ScreenWidth, (int)SVGAssetsUnity.ScreenHeight, shotEvent);
-    }
-
-    public float PixelWidth
-    {
-        // get the camera viewport width, in pixels
-        get
-        {
-            return _lastScreenWidth;
-        }
-    }
-    
-    public float PixelHeight
-    {
-        // get the camera viewport height, in pixels
-        get
-        {
-            return _lastScreenHeight;
-        }
-    }
-
-    public float WorldWidth
-    {
-        // get the camera viewport width, in world coordinates
-        get
-        {
-            return PixelWidth / SVGAssetsUnity.SPRITE_PIXELS_PER_UNIT;
-        }
-    }
-    
-    public float WorldHeight
-    {
-        // get the camera viewport height, in world coordinates
-        get
-        {
-            return PixelHeight / SVGAssetsUnity.SPRITE_PIXELS_PER_UNIT;
-        }
-    }
-
-    void Start()
-    {
-        // set the camera so that its viewing volume coincides with the whole device screen (or with the GameView, if inside Editor)
-        Resize(false);
-    }
-    
-    void Update()
-    {
-        // get the current screen size
-        int curScreenWidth = (int)SVGAssetsUnity.ScreenWidth;
-        int curScreenHeight = (int)SVGAssetsUnity.ScreenHeight;
-
-        // if screen size has changed (e.g. device orientation changed), fire the event
-        if ((curScreenWidth != _lastScreenWidth) || (curScreenHeight != _lastScreenHeight))
+        public void Resize(bool shotEvent)
         {
             // update camera aspect ratio and orthographic size
-            Resize(curScreenWidth, curScreenHeight, Application.isPlaying);
+            Resize((int)SVGAssetsUnity.ScreenWidth, (int)SVGAssetsUnity.ScreenHeight, shotEvent);
         }
-    }
 
-#if UNITY_EDITOR
-
-    // this script works with orthographic cameras only
-    private bool RequirementsCheck()
-    {
-        bool ok = true;
-        Camera camera = GetComponent<Camera>();
-
-        if (camera == null || (!camera.orthographic))
+        public float PixelWidth
         {
-            EditorUtility.DisplayDialog("Incompatible game object",
-                                        string.Format("In order to work properly, the component {0} must be attached to an orthographic camera", GetType()),
-                                        "Ok");
-            DestroyImmediate(this);
-            ok = false;
+            // get the camera viewport width, in pixels
+            get
+            {
+                return _lastScreenWidth;
+            }
+        }
+    
+        public float PixelHeight
+        {
+            // get the camera viewport height, in pixels
+            get
+            {
+                return _lastScreenHeight;
+            }
         }
 
-        return ok;
+        public float WorldWidth
+        {
+            // get the camera viewport width, in world coordinates
+            get
+            {
+                return PixelWidth / SVGAssetsUnity.SPRITE_PIXELS_PER_UNIT;
+            }
+        }
+    
+        public float WorldHeight
+        {
+            // get the camera viewport height, in world coordinates
+            get
+            {
+                return PixelHeight / SVGAssetsUnity.SPRITE_PIXELS_PER_UNIT;
+            }
+        }
+
+        void Start()
+        {
+            // set the camera so that its viewing volume coincides with the whole device screen (or with the GameView, if inside Editor)
+            Resize(false);
+        }
+    
+        void Update()
+        {
+            // get the current screen size
+            int curScreenWidth = (int)SVGAssetsUnity.ScreenWidth;
+            int curScreenHeight = (int)SVGAssetsUnity.ScreenHeight;
+
+            // if screen size has changed (e.g. device orientation changed), fire the event
+            if ((curScreenWidth != _lastScreenWidth) || (curScreenHeight != _lastScreenHeight))
+            {
+                // update camera aspect ratio and orthographic size
+                Resize(curScreenWidth, curScreenHeight, Application.isPlaying);
+            }
+        }
+
+    #if UNITY_EDITOR
+
+        // this script works with orthographic cameras only
+        private bool RequirementsCheck()
+        {
+            bool ok = true;
+            Camera camera = GetComponent<Camera>();
+
+            if (camera == null || (!camera.orthographic))
+            {
+                EditorUtility.DisplayDialog("Incompatible game object",
+                                            string.Format("In order to work properly, the component {0} must be attached to an orthographic camera", GetType()),
+                                            "Ok");
+                DestroyImmediate(this);
+                ok = false;
+            }
+
+            return ok;
+        }
+
+        // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
+        // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
+        void Reset()
+        {
+            RequirementsCheck();
+        }
+
+    #endif
+
+        public delegate void OnResizeEvent(int newScreenWidth, int newScreenHeight);
+        public event OnResizeEvent OnResize;
+        // device screen dimensions
+        [NonSerialized]
+        private int _lastScreenWidth;
+        [NonSerialized]
+        private int _lastScreenHeight;
     }
-
-    // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
-    // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
-    void Reset()
-    {
-        RequirementsCheck();
-    }
-
-#endif
-
-    public delegate void OnResizeEvent(int newScreenWidth, int newScreenHeight);
-    public event OnResizeEvent OnResize;
-    // device screen dimensions
-    [NonSerialized]
-    private int _lastScreenWidth;
-    [NonSerialized]
-    private int _lastScreenHeight;
 }

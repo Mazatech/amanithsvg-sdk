@@ -34,106 +34,108 @@
 ** 
 ****************************************************************************/
 using System;
-using System.Collections.Generic;
 using UnityEngine; 
 using UnityEditor;
 
-[ CustomEditor(typeof(SVGSpriteLoaderBehaviour)) ]
-public class SVGSpriteLoaderEditor : Editor {
+namespace SVGAssets
+{
+    [ CustomEditor(typeof(SVGSpriteLoaderBehaviour)) ]
+    public class SVGSpriteLoaderEditor : Editor {
 
-    private void OnSpriteSelect(SVGSpriteAssetFile spriteAsset)
-    {
-        if (_editedLoader.SpriteReference.TxtAsset != spriteAsset.SpriteRef.TxtAsset ||
-            _editedLoader.SpriteReference.ElemIdx != spriteAsset.SpriteRef.ElemIdx)
+        private void OnSpriteSelect(SVGSpriteAssetFile spriteAsset)
         {
-            // set the selected sprite (reference)
-            _editedLoader.SpriteReference.TxtAsset = spriteAsset.SpriteRef.TxtAsset;
-            _editedLoader.SpriteReference.ElemIdx = spriteAsset.SpriteRef.ElemIdx;
-            // set the selected sprite into the renderer
-            SpriteRenderer renderer = _editedLoader.GetComponent<SpriteRenderer>();
-            if (renderer != null)
+            if (_editedLoader.SpriteReference.TxtAsset != spriteAsset.SpriteRef.TxtAsset ||
+                _editedLoader.SpriteReference.ElemIdx != spriteAsset.SpriteRef.ElemIdx)
             {
-                renderer.sprite = spriteAsset.SpriteData.Sprite;
+                // set the selected sprite (reference)
+                _editedLoader.SpriteReference.TxtAsset = spriteAsset.SpriteRef.TxtAsset;
+                _editedLoader.SpriteReference.ElemIdx = spriteAsset.SpriteRef.ElemIdx;
+                // set the selected sprite into the renderer
+                SpriteRenderer renderer = _editedLoader.GetComponent<SpriteRenderer>();
+                if (renderer != null)
+                {
+                    renderer.sprite = spriteAsset.SpriteData.Sprite;
+                }
             }
         }
-    }
 
-    private void OnAtlasSelect(SVGAtlas atlas)
-    {
-        if (_editedLoader.Atlas != atlas)
+        private void OnAtlasSelect(SVGAtlas atlas)
         {
-            _editedLoader.Atlas = atlas;
-            _editedLoader.SpriteReference = null;
-
-            SpriteRenderer renderer = _editedLoader.GetComponent<SpriteRenderer>();
-            if (renderer != null)
+            if (_editedLoader.Atlas != atlas)
             {
-                renderer.sprite = null;
+                _editedLoader.Atlas = atlas;
+                _editedLoader.SpriteReference = null;
+
+                SpriteRenderer renderer = _editedLoader.GetComponent<SpriteRenderer>();
+                if (renderer != null)
+                {
+                    renderer.sprite = null;
+                }
             }
         }
-    }
 
-    private void DrawInspector()
-    {
-        bool resizeOnStart = EditorGUILayout.Toggle("Resize on Start()", _editedLoader.ResizeOnStart);
-        bool updateTransform = EditorGUILayout.Toggle("Update transform", _editedLoader.UpdateTransform);
-
-        string atlasName = (_editedLoader.Atlas != null) ? _editedLoader.Atlas.name : "<select>";
-        EditorGUILayout.BeginHorizontal();
+        private void DrawInspector()
         {
-            EditorGUILayout.PrefixLabel("Atlas");
-            if (GUILayout.Button(atlasName, "DropDown"))
-            {
-                SVGAtlasSelector.Show("", OnAtlasSelect);
-            }
-        }
-        EditorGUILayout.EndHorizontal();
+            bool resizeOnStart = EditorGUILayout.Toggle("Resize on Start()", _editedLoader.ResizeOnStart);
+            bool updateTransform = EditorGUILayout.Toggle("Update transform", _editedLoader.UpdateTransform);
 
-        if ((_editedLoader.Atlas != null) && (_editedLoader.SpriteReference != null))
-        {
-            SVGSpriteAssetFile spriteAsset = _editedLoader.Atlas.GetGeneratedSprite(_editedLoader.SpriteReference);
-            string buttonText = (spriteAsset != null) ? spriteAsset.SpriteData.Sprite.name : "<select>";
-
+            string atlasName = (_editedLoader.Atlas != null) ? _editedLoader.Atlas.name : "<select>";
             EditorGUILayout.BeginHorizontal();
             {
-                EditorGUILayout.PrefixLabel("Sprite");
-                if (GUILayout.Button(buttonText, "DropDown"))
+                EditorGUILayout.PrefixLabel("Atlas");
+                if (GUILayout.Button(atlasName, "DropDown"))
                 {
-                    SVGSpriteSelector.Show(_editedLoader.Atlas, "", OnSpriteSelect);
+                    SVGAtlasSelector.Show("", OnAtlasSelect);
                 }
             }
             EditorGUILayout.EndHorizontal();
+
+            if ((_editedLoader.Atlas != null) && (_editedLoader.SpriteReference != null))
+            {
+                SVGSpriteAssetFile spriteAsset = _editedLoader.Atlas.GetGeneratedSprite(_editedLoader.SpriteReference);
+                string buttonText = (spriteAsset != null) ? spriteAsset.SpriteData.Sprite.name : "<select>";
+
+                EditorGUILayout.BeginHorizontal();
+                {
+                    EditorGUILayout.PrefixLabel("Sprite");
+                    if (GUILayout.Button(buttonText, "DropDown"))
+                    {
+                        SVGSpriteSelector.Show(_editedLoader.Atlas, "", OnSpriteSelect);
+                    }
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            if (_editedLoader.ResizeOnStart != resizeOnStart)
+            {
+                _editedLoader.ResizeOnStart = resizeOnStart;
+                SVGUtils.MarkObjectDirty(_editedLoader);
+            }
+
+            if (_editedLoader.UpdateTransform != updateTransform)
+            {
+                _editedLoader.UpdateTransform = updateTransform;
+                SVGUtils.MarkObjectDirty(_editedLoader);
+            }
         }
 
-        if (_editedLoader.ResizeOnStart != resizeOnStart)
+        public override void OnInspectorGUI()
         {
-            _editedLoader.ResizeOnStart = resizeOnStart;
-            SVGUtils.MarkObjectDirty(_editedLoader);
+            // get the target object
+            _editedLoader = target as SVGSpriteLoaderBehaviour;
+
+            if (_editedLoader != null)
+            {
+                GUI.enabled = (Application.isPlaying) ? false : true;
+                DrawInspector();
+            }
         }
 
-        if (_editedLoader.UpdateTransform != updateTransform)
+        void OnDestroy()
         {
-            _editedLoader.UpdateTransform = updateTransform;
-            SVGUtils.MarkObjectDirty(_editedLoader);
         }
+
+        [NonSerialized]
+        private SVGSpriteLoaderBehaviour _editedLoader = null;
     }
-
-    public override void OnInspectorGUI()
-    {
-        // get the target object
-        _editedLoader = target as SVGSpriteLoaderBehaviour;
-
-        if (_editedLoader != null)
-        {
-            GUI.enabled = (Application.isPlaying) ? false : true;
-            DrawInspector();
-        }
-    }
-
-    void OnDestroy()
-    {
-    }
-
-    [NonSerialized]
-    private SVGSpriteLoaderBehaviour _editedLoader = null;
 }

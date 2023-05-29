@@ -39,153 +39,156 @@ using UnityEngine;
     using UnityEditor;
 #endif
 
-public class SVGSpriteLoaderBehaviour : MonoBehaviour
+namespace SVGAssets
 {
-    private void FixLocalPosition(float deltaScale)
+    public class SVGSpriteLoaderBehaviour : MonoBehaviour
     {
-        if (deltaScale > 0)
+        private void FixLocalPosition(float deltaScale)
         {
-            Vector3 newPos = transform.localPosition;
-            newPos.x *= deltaScale;
-            newPos.y *= deltaScale;
-            transform.localPosition = newPos;
-            m_OldPos = newPos;
-            transform.hasChanged = false;
-        }
-    }
-
-    private void UpdateSprite(int currentScreenWidth, int currentScreenHeight)
-    {
-        if ((Atlas != null) && (SpriteReference != null))
-        {
-            SpriteRenderer renderer = gameObject.GetComponent<SpriteRenderer>();
-            if (renderer != null)
+            if (deltaScale > 0)
             {
-                if (Atlas.UpdateRuntimeSprites(currentScreenWidth, currentScreenHeight, out float scale))
+                Vector3 newPos = transform.localPosition;
+                newPos.x *= deltaScale;
+                newPos.y *= deltaScale;
+                transform.localPosition = newPos;
+                m_OldPos = newPos;
+                transform.hasChanged = false;
+            }
+        }
+
+        private void UpdateSprite(int currentScreenWidth, int currentScreenHeight)
+        {
+            if ((Atlas != null) && (SpriteReference != null))
+            {
+                SpriteRenderer renderer = gameObject.GetComponent<SpriteRenderer>();
+                if (renderer != null)
                 {
-                    SVGRuntimeSprite newSprite = Atlas.GetRuntimeSprite(SpriteReference);
-                    if (newSprite != null)
+                    if (Atlas.UpdateRuntimeSprites(currentScreenWidth, currentScreenHeight, out float scale))
                     {
-                        renderer.sprite = newSprite.Sprite;
-                        // fix for the first time the sprite is regenerated at runtime
-                        if (m_RuntimeScale == 0)
+                        SVGRuntimeSprite newSprite = Atlas.GetRuntimeSprite(SpriteReference);
+                        if (newSprite != null)
                         {
-                            m_RuntimeScale = Atlas.EditorGenerationScale;
+                            renderer.sprite = newSprite.Sprite;
+                            // fix for the first time the sprite is regenerated at runtime
+                            if (m_RuntimeScale == 0)
+                            {
+                                m_RuntimeScale = Atlas.EditorGenerationScale;
+                            }
+                            // update local position
+                            FixLocalPosition(newSprite.GenerationScale / m_RuntimeScale);
+                            m_RuntimeScale = newSprite.GenerationScale;
                         }
-                        // update local position
-                        FixLocalPosition(newSprite.GenerationScale / m_RuntimeScale);
-                        m_RuntimeScale = newSprite.GenerationScale;
                     }
                 }
             }
         }
-    }
 
-    public void UpdateSprite(bool updateChildren, int currentScreenWidth, int currentScreenHeight)
-    {
-        // regenerate (if needed) the sprite
-        UpdateSprite(currentScreenWidth, currentScreenHeight);
-        
-        if (updateChildren)
+        public void UpdateSprite(bool updateChildren, int currentScreenWidth, int currentScreenHeight)
         {
-            int childCount = transform.childCount;
-            // update children
-            for (int i = 0; i < childCount; ++i)
+            // regenerate (if needed) the sprite
+            UpdateSprite(currentScreenWidth, currentScreenHeight);
+        
+            if (updateChildren)
             {
-                GameObject gameObj = transform.GetChild(i).gameObject;
-                SVGSpriteLoaderBehaviour loader = gameObj.GetComponent<SVGSpriteLoaderBehaviour>();
-                if (loader != null)
+                int childCount = transform.childCount;
+                // update children
+                for (int i = 0; i < childCount; ++i)
                 {
-                    loader.UpdateSprite(updateChildren, currentScreenWidth, currentScreenHeight);
+                    GameObject gameObj = transform.GetChild(i).gameObject;
+                    SVGSpriteLoaderBehaviour loader = gameObj.GetComponent<SVGSpriteLoaderBehaviour>();
+                    if (loader != null)
+                    {
+                        loader.UpdateSprite(updateChildren, currentScreenWidth, currentScreenHeight);
+                    }
                 }
             }
         }
-    }
 
-    void Start()
-    {
-        // keep track of the current position
-        m_OldPos = transform.localPosition;
-        // update/regenerate sprite, if requested
-        if (ResizeOnStart)
+        void Start()
         {
-            UpdateSprite((int)SVGAssetsUnity.ScreenWidth, (int)SVGAssetsUnity.ScreenHeight);
+            // keep track of the current position
+            m_OldPos = transform.localPosition;
+            // update/regenerate sprite, if requested
+            if (ResizeOnStart)
+            {
+                UpdateSprite((int)SVGAssetsUnity.ScreenWidth, (int)SVGAssetsUnity.ScreenHeight);
+            }
         }
-    }
     
-    void LateUpdate()
-    {
-        // when position has changed (due to an animation keyframe) we must rescale respect to the original factor, not the last used one
-        if (UpdateTransform && transform.hasChanged)
+        void LateUpdate()
         {
-            Vector3 newPos = transform.localPosition;
-            if (newPos != m_OldPos)
+            // when position has changed (due to an animation keyframe) we must rescale respect to the original factor, not the last used one
+            if (UpdateTransform && transform.hasChanged)
             {
-                // fix the local position according to the original scale (i.e. the scale used to generate sprites from within the Unity editor)
-                FixLocalPosition(m_RuntimeScale / Atlas.EditorGenerationScale);
+                Vector3 newPos = transform.localPosition;
+                if (newPos != m_OldPos)
+                {
+                    // fix the local position according to the original scale (i.e. the scale used to generate sprites from within the Unity editor)
+                    FixLocalPosition(m_RuntimeScale / Atlas.EditorGenerationScale);
+                }
             }
         }
-    }
 
-#if UNITY_EDITOR
-    private bool RequirementsCheck()
-    {
-        // get list of attached components
-        Component[] components = gameObject.GetComponents(GetType());
-        // check for duplicate components
-        foreach (Component component in components)
+    #if UNITY_EDITOR
+        private bool RequirementsCheck()
         {
-            if (component == this)
+            // get list of attached components
+            Component[] components = gameObject.GetComponents(GetType());
+            // check for duplicate components
+            foreach (Component component in components)
             {
-                continue;
+                if (component == this)
+                {
+                    continue;
+                }
+                // show warning
+                EditorUtility.DisplayDialog("Can't add the same component multiple times!",
+                                            string.Format("The component {0} can't be added because {1} already contains the same component.", GetType(), gameObject.name),
+                                            "Ok");
+                // destroy the duplicate component
+                DestroyImmediate(this);
             }
-            // show warning
-            EditorUtility.DisplayDialog("Can't add the same component multiple times!",
-                                        string.Format("The component {0} can't be added because {1} already contains the same component.", GetType(), gameObject.name),
-                                        "Ok");
-            // destroy the duplicate component
-            DestroyImmediate(this);
-        }
 
-        SpriteRenderer renderer = gameObject.GetComponent<SpriteRenderer>();
-        if (renderer == null)
-        {
-            EditorUtility.DisplayDialog("Incompatible game object",
-                                        string.Format("In order to work properly, the component {0} requires the presence of a SpriteRenderer component", GetType()),
-                                        "Ok");
-            return false;
-        }
-        return true;
-    }
-
-    // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
-    // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
-    void Reset()
-    {
-        if (RequirementsCheck())
-        {
-            Atlas = null;
-            SpriteReference = null;
-            ResizeOnStart = true;
-            UpdateTransform = true;
             SpriteRenderer renderer = gameObject.GetComponent<SpriteRenderer>();
-            renderer.sprite = null;
+            if (renderer == null)
+            {
+                EditorUtility.DisplayDialog("Incompatible game object",
+                                            string.Format("In order to work properly, the component {0} requires the presence of a SpriteRenderer component", GetType()),
+                                            "Ok");
+                return false;
+            }
+            return true;
         }
-    }
-#endif
 
-    // Atlas generator the sprite reference to
-    public SVGAtlas Atlas;
-    // Sprite reference
-    public SVGSpriteRef SpriteReference;
-    // True if sprite must be regenerated at Start, else false
-    public bool ResizeOnStart;
-    // True if we have to fix (local) position according to the (updated) sprite dimensions, else false
-    public bool UpdateTransform;
-    // Keep track of last (local) position
-    [NonSerialized]
-    private Vector3 m_OldPos;
-    // Keep track of the scale used by last runtime generation
-    [NonSerialized]
-    private float m_RuntimeScale = 0;
+        // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
+        // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
+        void Reset()
+        {
+            if (RequirementsCheck())
+            {
+                Atlas = null;
+                SpriteReference = null;
+                ResizeOnStart = true;
+                UpdateTransform = true;
+                SpriteRenderer renderer = gameObject.GetComponent<SpriteRenderer>();
+                renderer.sprite = null;
+            }
+        }
+    #endif
+
+        // Atlas generator the sprite reference to
+        public SVGAtlas Atlas;
+        // Sprite reference
+        public SVGSpriteRef SpriteReference;
+        // True if sprite must be regenerated at Start, else false
+        public bool ResizeOnStart;
+        // True if we have to fix (local) position according to the (updated) sprite dimensions, else false
+        public bool UpdateTransform;
+        // Keep track of last (local) position
+        [NonSerialized]
+        private Vector3 m_OldPos;
+        // Keep track of the scale used by last runtime generation
+        [NonSerialized]
+        private float m_RuntimeScale = 0;
+    }
 }

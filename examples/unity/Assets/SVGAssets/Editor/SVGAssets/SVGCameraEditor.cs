@@ -35,26 +35,29 @@
 ****************************************************************************/
 using UnityEditor;
 
-[ CustomEditor(typeof(SVGCameraBehaviour)) ]
-public class SVGCameraEditor : Editor
+namespace SVGAssets 
 {
-    private void DrawInspector(SVGCameraBehaviour svgCamera)
+    [ CustomEditor(typeof(SVGCameraBehaviour)) ]
+    public class SVGCameraEditor : Editor
     {
-        // show dimensions in pixel and world units
-        EditorGUILayout.LabelField("Width (pixel units)", svgCamera.PixelWidth.ToString());
-        EditorGUILayout.LabelField("Height (pixel units)", svgCamera.PixelHeight.ToString());
-        EditorGUILayout.LabelField("Width (world units)", svgCamera.WorldWidth.ToString());
-        EditorGUILayout.LabelField("Height (world units)", svgCamera.WorldHeight.ToString());
-    }
-
-    public override void OnInspectorGUI()
-    {
-        // get the target object
-        SVGCameraBehaviour camera = target as SVGCameraBehaviour;
-        
-        if (camera != null)
+        private void DrawInspector(SVGCameraBehaviour svgCamera)
         {
-            DrawInspector(camera);
+            // show dimensions in pixel and world units
+            EditorGUILayout.LabelField("Width (pixel units)", svgCamera.PixelWidth.ToString());
+            EditorGUILayout.LabelField("Height (pixel units)", svgCamera.PixelHeight.ToString());
+            EditorGUILayout.LabelField("Width (world units)", svgCamera.WorldWidth.ToString());
+            EditorGUILayout.LabelField("Height (world units)", svgCamera.WorldHeight.ToString());
+        }
+
+        public override void OnInspectorGUI()
+        {
+            // get the target object
+            SVGCameraBehaviour camera = target as SVGCameraBehaviour;
+        
+            if (camera != null)
+            {
+                DrawInspector(camera);
+            }
         }
     }
 }

@@ -39,108 +39,111 @@ using UnityEngine.UI;
     using UnityEditor;
 #endif
 
-public class SVGUISpriteLoaderBehaviour : MonoBehaviour
+namespace SVGAssets 
 {
-
-    private void UpdateSprite(float canvasScaleFactor)
+    public class SVGUISpriteLoaderBehaviour : MonoBehaviour
     {
-        if ((UIAtlas != null) && (SpriteReference != null))
+
+        private void UpdateSprite(float canvasScaleFactor)
         {
-            Image uiImage = gameObject.GetComponent<Image>();
-            if (uiImage != null)
+            if ((UIAtlas != null) && (SpriteReference != null))
             {
-                if (UIAtlas.UpdateRuntimeSprites(canvasScaleFactor))
+                Image uiImage = gameObject.GetComponent<Image>();
+                if (uiImage != null)
                 {
-                    SVGRuntimeSprite newSprite = UIAtlas.GetRuntimeSprite(SpriteReference);
-                    if (newSprite != null)
+                    if (UIAtlas.UpdateRuntimeSprites(canvasScaleFactor))
                     {
-                        // NB: we change sprite only, anchors and position will be updated by the canvas
-                        uiImage.sprite = newSprite.Sprite;
+                        SVGRuntimeSprite newSprite = UIAtlas.GetRuntimeSprite(SpriteReference);
+                        if (newSprite != null)
+                        {
+                            // NB: we change sprite only, anchors and position will be updated by the canvas
+                            uiImage.sprite = newSprite.Sprite;
+                        }
                     }
                 }
             }
         }
-    }
 
-    public void UpdateSprite()
-    {
-        Image uiImage = gameObject.GetComponent<Image>();
-        // update/regenerate sprite, if requested
-        if (((uiImage != null) && (UIAtlas != null) && (uiImage.canvas != null)))
+        public void UpdateSprite()
         {
-            UpdateSprite(uiImage.canvas.scaleFactor * UIAtlas.OffsetScale);
-        }
-    }
-
-    void Start()
-    {
-        // update/regenerate sprite, if requested
-        if (ResizeOnStart)
-        {
-            UpdateSprite();
-        }
-    }
-
-#if UNITY_EDITOR
-    private bool RequirementsCheck()
-    {
-        // get list of attached components
-        Component[] components = gameObject.GetComponents(GetType());
-        // check for duplicate components
-        foreach (Component component in components)
-        {
-            if (component == this)
-            {
-                continue;
-            }
-            // show warning
-            EditorUtility.DisplayDialog("Can't add the same component multiple times!",
-                                        string.Format("The component {0} can't be added because {1} already contains the same component.", GetType(), gameObject.name),
-                                        "Ok");
-            // destroy the duplicate component
-            DestroyImmediate(this);
-        }
-
-        Image uiImage = gameObject.GetComponent<Image>();
-        if (uiImage == null)
-        {
-            EditorUtility.DisplayDialog("Incompatible game object",
-                                        string.Format("In order to work properly, the component {0} requires the presence of a UI.Image component", GetType()),
-                                        "Ok");
-            return false;
-        }
-
-        return true;
-    }
-
-    // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
-    // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
-    void Reset()
-    {
-        if (RequirementsCheck())
-        {
-            UIAtlas = null;
-            SpriteReference = null;
-            ResizeOnStart = true;
             Image uiImage = gameObject.GetComponent<Image>();
-            uiImage.type = Image.Type.Simple;
-            uiImage.material = null;
-            if (uiImage.canvas != null) {
-                // set the atlas associated to the canvas (see SVGCanvasBehaviour)
-                SVGCanvasBehaviour svgCanvas = uiImage.canvas.GetComponent<SVGCanvasBehaviour>();
-                if (svgCanvas != null)
+            // update/regenerate sprite, if requested
+            if (((uiImage != null) && (UIAtlas != null) && (uiImage.canvas != null)))
+            {
+                UpdateSprite(uiImage.canvas.scaleFactor * UIAtlas.OffsetScale);
+            }
+        }
+
+        void Start()
+        {
+            // update/regenerate sprite, if requested
+            if (ResizeOnStart)
+            {
+                UpdateSprite();
+            }
+        }
+
+    #if UNITY_EDITOR
+        private bool RequirementsCheck()
+        {
+            // get list of attached components
+            Component[] components = gameObject.GetComponents(GetType());
+            // check for duplicate components
+            foreach (Component component in components)
+            {
+                if (component == this)
                 {
-                    UIAtlas = svgCanvas.UIAtlas;
+                    continue;
+                }
+                // show warning
+                EditorUtility.DisplayDialog("Can't add the same component multiple times!",
+                                            string.Format("The component {0} can't be added because {1} already contains the same component.", GetType(), gameObject.name),
+                                            "Ok");
+                // destroy the duplicate component
+                DestroyImmediate(this);
+            }
+
+            Image uiImage = gameObject.GetComponent<Image>();
+            if (uiImage == null)
+            {
+                EditorUtility.DisplayDialog("Incompatible game object",
+                                            string.Format("In order to work properly, the component {0} requires the presence of a UI.Image component", GetType()),
+                                            "Ok");
+                return false;
+            }
+
+            return true;
+        }
+
+        // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
+        // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
+        void Reset()
+        {
+            if (RequirementsCheck())
+            {
+                UIAtlas = null;
+                SpriteReference = null;
+                ResizeOnStart = true;
+                Image uiImage = gameObject.GetComponent<Image>();
+                uiImage.type = Image.Type.Simple;
+                uiImage.material = null;
+                if (uiImage.canvas != null) {
+                    // set the atlas associated to the canvas (see SVGCanvasBehaviour)
+                    SVGCanvasBehaviour svgCanvas = uiImage.canvas.GetComponent<SVGCanvasBehaviour>();
+                    if (svgCanvas != null)
+                    {
+                        UIAtlas = svgCanvas.UIAtlas;
+                    }
                 }
             }
         }
-    }
-#endif
+    #endif
 
-    // Atlas generator for this sprite reference
-    public SVGUIAtlas UIAtlas;
-    // Sprite reference
-    public SVGSpriteRef SpriteReference;
-    // true if sprite must be regenerated at Start, else false
-    public bool ResizeOnStart;
+        // Atlas generator for this sprite reference
+        public SVGUIAtlas UIAtlas;
+        // Sprite reference
+        public SVGSpriteRef SpriteReference;
+        // true if sprite must be regenerated at Start, else false
+        public bool ResizeOnStart;
+    }
 }

@@ -36,125 +36,131 @@
 using System.IO;
 using UnityEditor;
 
-public class SVGRenamerImporter : AssetPostprocessor
+namespace SVGAssets
 {
-    // move / rename an asset
-    private static void AssetMove(string oldAssetPath,
-                                  string newAssetPath)
+    public class SVGRenamerImporter : AssetPostprocessor
     {
-        // remove previous .meta (if exists)
-        FileUtil.DeleteFileOrDirectory(oldAssetPath + ".meta");
-        // rename font file by appending a .bytes extension
-        FileUtil.MoveFileOrDirectory(oldAssetPath, newAssetPath);
-        // refresh the database
-        AssetDatabase.Refresh();
-    }
-
-    private static void SVGResourceImport(SVGResourceType type,
-                                          string fileExt,
-                                          string assetPath)
-    {
-        string subject = (type == SVGResourceType.Font) ? "Font" : "Image";
-        string unityClass = (type == SVGResourceType.Font) ? "TextMesh" : "Texture2D";
-
-        // because Unity already recognizes font and images files, we must warn the user
-        bool ok = EditorUtility.DisplayDialog(string.Format("{0} import for SVGAssets", subject),
-                                              string.Format("Would you like to import {0} {1} for SVGAssets? If no, Unity will import it as a {2} and it won't be usable from SVGAssets", assetPath, subject.ToLower(), unityClass),
-                                              "Import", "Do NOT import");
-
-        if (ok)
+        // move / rename an asset
+        private static void AssetMove(string oldAssetPath,
+                                      string newAssetPath)
         {
-            // try to change file extension by appending ".bytes", so Unity can recognize those files as (binary) text assets
-            string newAssetPath = Path.ChangeExtension(assetPath, fileExt + ".bytes");
+            // remove previous .meta (if exists)
+            FileUtil.DeleteFileOrDirectory(oldAssetPath + ".meta");
+            // rename font file by appending a .bytes extension
+            FileUtil.MoveFileOrDirectory(oldAssetPath, newAssetPath);
+            // refresh the database
+            AssetDatabase.Refresh();
+        }
 
-            // does a file with this .bytes extension already exist?
-            if (File.Exists(newAssetPath))
-            {
-                ok = EditorUtility.DisplayDialog(string.Format("{0} already exists!", subject),
-                                                 string.Format("{0} already exists, would you like to overwrite it?", newAssetPath),
-                                                 "Import and overwrite", "Do NOT import");
+        private static void SVGResourceImport(SVGResourceType type,
+                                              string fileExt,
+                                              string assetPath)
+        {
+            string subject = (type == SVGResourceType.Font) ? "Font" : "Image";
+            string unityClass = (type == SVGResourceType.Font) ? "TextMesh" : "Texture2D";
 
-                if (ok)
-                {
-                    // remove the already existing asset file
-                    ok = AssetDatabase.DeleteAsset(newAssetPath);
-                }
-            }
+            // because Unity already recognizes font and images files, we must warn the user
+            bool ok = EditorUtility.DisplayDialog(string.Format("{0} import for SVGAssets", subject),
+                                                  string.Format("Would you like to import {0} {1} for SVGAssets? If no, Unity will import it as a {2} and it won't be usable from SVGAssets", assetPath, subject.ToLower(), unityClass),
+                                                  "Import", "Do NOT import");
 
             if (ok)
             {
-                // move/rename the asset
-                AssetMove(assetPath, newAssetPath);
-            }
-        }
-    }
+                // try to change file extension by appending ".bytes", so Unity can recognize those files as (binary) text assets
+                string newAssetPath = Path.ChangeExtension(assetPath, fileExt + ".bytes");
 
-    // check if the given asset is a font or image that can be used by AmanithSVG as a resource
-    private static void SVGResourceImport(string fileExt,
-                                          string assetPath)
-    {
-        switch (fileExt)
-        {
-            // image files
-            case ".jpg":
-            case ".jpeg":
-            case ".png":
-                SVGResourceImport(SVGResourceType.Image, fileExt, assetPath);
-                break;
-            // font files
-            case ".otf":
-            case ".ttf":
-            case ".woff":
-            case ".woff2":
-                SVGResourceImport(SVGResourceType.Font, fileExt, assetPath);
-                break;
-            default:
-                // nothing to do
-                break;
-        }
-    }
-
-    static void OnPostprocessAllAssets(string[] importedAssets,
-                                       string[] deletedAssets,
-                                       string[] movedAssets,
-                                       string[] movedFromAssetPaths)
-    {
-        foreach (string assetPath in importedAssets)
-        {
-            if (assetPath.StartsWith("Assets"))
-            {
-                string fileExt = Path.GetExtension(assetPath).ToLower();
-
-                // SVG files
-                if (fileExt.Equals(".svg"))
+                // does a file with this .bytes extension already exist?
+                if (File.Exists(newAssetPath))
                 {
-                    bool ok = true;
-                    // try to change ".svg" file extension with ".svg.txt", so Unity can recognize those files as text assets
-                    string newAssetPath = Path.ChangeExtension(assetPath, ".svg.txt");
+                    ok = EditorUtility.DisplayDialog(string.Format("{0} already exists!", subject),
+                                                     string.Format("{0} already exists, would you like to overwrite it?", newAssetPath),
+                                                     "Import and overwrite", "Do NOT import");
 
-                    // does a file with this .svg.txt extension already exist?
-                    if (File.Exists(newAssetPath))
-                    {
-                        ok = EditorUtility.DisplayDialog("SVG already exists!",
-                                                         string.Format("{0} already exists, would you like to import it anyway and overwrite the previous one?", newAssetPath),
-                                                         "Import and overwrite", "Do NOT import");
-                        if (ok)
-                        {
-                            // remove the already existing asset file
-                            ok = AssetDatabase.DeleteAsset(newAssetPath);
-                        }
-                    }
-                    // do the actual rename
                     if (ok)
                     {
-                        // move/rename the asset
-                        AssetMove(assetPath, newAssetPath);
+                        // remove the already existing asset file
+                        ok = AssetDatabase.DeleteAsset(newAssetPath);
                     }
                 }
-                else
+
+                if (ok)
                 {
-                    // check if the given asset is a font or image that can be used by AmanithSVG as a resource
-                    SVGResourceImport(fileExt, assetPath);
+                    // move/rename the asset
+                    AssetMove(assetPath, newAssetPath);
+                }
+            }
+        }
+
+        // check if the given asset is a font or image that can be used by AmanithSVG as a resource
+        private static void SVGResourceImport(string fileExt,
+                                              string assetPath)
+        {
+            switch (fileExt)
+            {
+                // image files
+                case ".jpg":
+                case ".jpeg":
+                case ".png":
+                    SVGResourceImport(SVGResourceType.Image, fileExt, assetPath);
+                    break;
+                // font files
+                case ".otf":
+                case ".ttf":
+                case ".woff":
+                case ".woff2":
+                    SVGResourceImport(SVGResourceType.Font, fileExt, assetPath);
+                    break;
+                default:
+                    // nothing to do
+                    break;
+            }
+        }
+
+        static void OnPostprocessAllAssets(string[] importedAssets,
+                                           string[] deletedAssets,
+                                           string[] movedAssets,
+                                           string[] movedFromAssetPaths)
+        {
+            foreach (string assetPath in importedAssets)
+            {
+                // the asset must be located in Assets directory, to prevent importing images
+                // and other resources from other locations (as it happens, for example, with
+                // Unity for Mac when it downloads packages into the cache directory)
+                if (assetPath.StartsWith("Assets"))
+                {
+                    string fileExt = Path.GetExtension(assetPath).ToLower();
+
+                    // SVG files
+                    if (fileExt.Equals(".svg"))
+                    {
+                        bool ok = true;
+                        // try to change ".svg" file extension with ".svg.txt", so Unity can recognize those files as text assets
+                        string newAssetPath = Path.ChangeExtension(assetPath, ".svg.txt");
+
+                        // does a file with this .svg.txt extension already exist?
+                        if (File.Exists(newAssetPath))
+                        {
+                            ok = EditorUtility.DisplayDialog("SVG already exists!",
+                                                             string.Format("{0} already exists, would you like to import it anyway and overwrite the previous one?", newAssetPath),
+                                                             "Import and overwrite", "Do NOT import");
+                            if (ok)
+                            {
+                                // remove the already existing asset file
+                                ok = AssetDatabase.DeleteAsset(newAssetPath);
+                            }
+                        }
+                        // do the actual rename
+                        if (ok)
+                        {
+                            // move/rename the asset
+                            AssetMove(assetPath, newAssetPath);
+                        }
+                    }
+                    else
+                    {
+                        // check if the given asset is a font or image that can be used by AmanithSVG as a resource
+                        SVGResourceImport(fileExt, assetPath);
+                    }
                 }
             }
         }

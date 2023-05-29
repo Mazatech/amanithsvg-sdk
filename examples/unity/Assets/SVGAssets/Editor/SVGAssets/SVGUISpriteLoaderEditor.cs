@@ -34,124 +34,126 @@
 ** 
 ****************************************************************************/
 using System;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEditor;
 
-[ CustomEditor(typeof(SVGUISpriteLoaderBehaviour)) ]
-public class SVGUISpriteLoaderEditor : Editor {
+namespace SVGAssets
+{
+    [ CustomEditor(typeof(SVGUISpriteLoaderBehaviour)) ]
+    public class SVGUISpriteLoaderEditor : Editor {
 
-    private void OnSpriteSelect(SVGSpriteAssetFile spriteAsset)
-    {
-        if (!_editedLoader.SpriteReference.Equals(spriteAsset.SpriteRef))
+        private void OnSpriteSelect(SVGSpriteAssetFile spriteAsset)
         {
-            // set the selected sprite (reference)
-            _editedLoader.SpriteReference.TxtAsset = spriteAsset.SpriteRef.TxtAsset;
-            _editedLoader.SpriteReference.ElemIdx = spriteAsset.SpriteRef.ElemIdx;
-            // set the selected sprite into the Image component
-            Image uiImage = _editedLoader.GetComponent<Image>();
-            if (uiImage != null)
+            if (!_editedLoader.SpriteReference.Equals(spriteAsset.SpriteRef))
             {
-                RectTransform rectTransform = uiImage.gameObject.GetComponent<RectTransform>();
-                Sprite sprite = spriteAsset.SpriteData.Sprite;
-                uiImage.sprite = sprite;
-                // Unity editor won't display immediately the new sprite if it has the same dimensions of the previous one
-                // so in order to refresh the game view, we set a temporary value and restore the previous one (or a new one)
-                if ((rectTransform.anchorMin == Vector2.zero) && (rectTransform.anchorMax == Vector2.one))
-                {
-                    Vector2 tmp = rectTransform.sizeDelta;
-                    rectTransform.sizeDelta = tmp + Vector2.one;
-                    rectTransform.sizeDelta = tmp;
-                }
-                else
-                {
-                    rectTransform.sizeDelta = Vector2.zero;
-                    rectTransform.sizeDelta = new Vector2(sprite.rect.width, sprite.rect.height);
-                }
-            }
-        }
-    }
-
-    // border editing callback
-    private void OnSpriteEdited(PivotEditingResult result, SVGSpriteAssetFile spriteAsset, Vector2 editedPivot, Vector4 editedBorder)
-    {
-        SVGUISpriteLoaderBehaviour spriteLoader = target as SVGUISpriteLoaderBehaviour;
-        if ((spriteLoader != null) && (result == PivotEditingResult.Ok)) {
-            SVGUIAtlas uiAtlas = spriteLoader.UIAtlas;
-            if (uiAtlas != null)
-            {
-                // assign the new border
-                uiAtlas.UpdateBorder(spriteAsset, editedPivot, editedBorder);
-                SVGUtils.MarkObjectDirty(uiAtlas);
-                Image uiImage = spriteLoader.GetComponent<Image>();
+                // set the selected sprite (reference)
+                _editedLoader.SpriteReference.TxtAsset = spriteAsset.SpriteRef.TxtAsset;
+                _editedLoader.SpriteReference.ElemIdx = spriteAsset.SpriteRef.ElemIdx;
+                // set the selected sprite into the Image component
+                Image uiImage = _editedLoader.GetComponent<Image>();
                 if (uiImage != null)
                 {
-                    // the Image component does not recognize the change of sprite border, so in order to refresh
-                    // instantiated objects we have to unset-set the sprite property
-                    uiImage.sprite = null;
-                    uiImage.sprite = spriteAsset.SpriteData.Sprite;
+                    RectTransform rectTransform = uiImage.gameObject.GetComponent<RectTransform>();
+                    Sprite sprite = spriteAsset.SpriteData.Sprite;
+                    uiImage.sprite = sprite;
+                    // Unity editor won't display immediately the new sprite if it has the same dimensions of the previous one
+                    // so in order to refresh the game view, we set a temporary value and restore the previous one (or a new one)
+                    if ((rectTransform.anchorMin == Vector2.zero) && (rectTransform.anchorMax == Vector2.one))
+                    {
+                        Vector2 tmp = rectTransform.sizeDelta;
+                        rectTransform.sizeDelta = tmp + Vector2.one;
+                        rectTransform.sizeDelta = tmp;
+                    }
+                    else
+                    {
+                        rectTransform.sizeDelta = Vector2.zero;
+                        rectTransform.sizeDelta = new Vector2(sprite.rect.width, sprite.rect.height);
+                    }
                 }
             }
         }
-    }
 
-    private void DrawInspector()
-    {
-        bool resizeOnStart;
-        EditorGUILayout.BeginHorizontal();
+        // border editing callback
+        private void OnSpriteEdited(PivotEditingResult result, SVGSpriteAssetFile spriteAsset, Vector2 editedPivot, Vector4 editedBorder)
         {
-            EditorGUILayout.PrefixLabel("Resize on Start()");
-            resizeOnStart = EditorGUILayout.Toggle(_editedLoader.ResizeOnStart);
+            SVGUISpriteLoaderBehaviour spriteLoader = target as SVGUISpriteLoaderBehaviour;
+            if ((spriteLoader != null) && (result == PivotEditingResult.Ok)) {
+                SVGUIAtlas uiAtlas = spriteLoader.UIAtlas;
+                if (uiAtlas != null)
+                {
+                    // assign the new border
+                    uiAtlas.UpdateBorder(spriteAsset, editedPivot, editedBorder);
+                    SVGUtils.MarkObjectDirty(uiAtlas);
+                    Image uiImage = spriteLoader.GetComponent<Image>();
+                    if (uiImage != null)
+                    {
+                        // the Image component does not recognize the change of sprite border, so in order to refresh
+                        // instantiated objects we have to unset-set the sprite property
+                        uiImage.sprite = null;
+                        uiImage.sprite = spriteAsset.SpriteData.Sprite;
+                    }
+                }
+            }
         }
-        EditorGUILayout.EndHorizontal();
 
-        SVGUIAtlas uiAtlas = _editedLoader.UIAtlas;
-
-        if ((uiAtlas != null) && (_editedLoader.SpriteReference != null))
+        private void DrawInspector()
         {
-            SVGSpriteAssetFile spriteAsset = uiAtlas.GetGeneratedSprite(_editedLoader.SpriteReference);
-            string buttonText = (spriteAsset != null) ? spriteAsset.SpriteData.Sprite.name : "<select>";
-
+            bool resizeOnStart;
             EditorGUILayout.BeginHorizontal();
             {
-                EditorGUILayout.PrefixLabel("Sprite");
-                if (GUILayout.Button(buttonText, "DropDown"))
-                {
-                    SVGSpriteSelector.Show(uiAtlas, "", OnSpriteSelect);
-                }
-                if (GUILayout.Button("Edit", GUILayout.Width(80)))
-                {
-                    // show pivot editor
-                    SVGPivotEditor.Show(spriteAsset, OnSpriteEdited);
-                }
+                EditorGUILayout.PrefixLabel("Resize on Start()");
+                resizeOnStart = EditorGUILayout.Toggle(_editedLoader.ResizeOnStart);
             }
             EditorGUILayout.EndHorizontal();
+
+            SVGUIAtlas uiAtlas = _editedLoader.UIAtlas;
+
+            if ((uiAtlas != null) && (_editedLoader.SpriteReference != null))
+            {
+                SVGSpriteAssetFile spriteAsset = uiAtlas.GetGeneratedSprite(_editedLoader.SpriteReference);
+                string buttonText = (spriteAsset != null) ? spriteAsset.SpriteData.Sprite.name : "<select>";
+
+                EditorGUILayout.BeginHorizontal();
+                {
+                    EditorGUILayout.PrefixLabel("Sprite");
+                    if (GUILayout.Button(buttonText, "DropDown"))
+                    {
+                        SVGSpriteSelector.Show(uiAtlas, "", OnSpriteSelect);
+                    }
+                    if (GUILayout.Button("Edit", GUILayout.Width(80)))
+                    {
+                        // show pivot editor
+                        SVGPivotEditor.Show(spriteAsset, OnSpriteEdited);
+                    }
+                }
+                EditorGUILayout.EndHorizontal();
+            }
+
+            if (_editedLoader.ResizeOnStart != resizeOnStart)
+            {
+                _editedLoader.ResizeOnStart = resizeOnStart;
+                SVGUtils.MarkObjectDirty(_editedLoader);
+            }
         }
 
-        if (_editedLoader.ResizeOnStart != resizeOnStart)
+        public override void OnInspectorGUI()
         {
-            _editedLoader.ResizeOnStart = resizeOnStart;
-            SVGUtils.MarkObjectDirty(_editedLoader);
+            // get the target object
+            _editedLoader = target as SVGUISpriteLoaderBehaviour;
+
+            if (_editedLoader != null)
+            {
+                GUI.enabled = !Application.isPlaying;
+                DrawInspector();
+            }
         }
-    }
 
-    public override void OnInspectorGUI()
-    {
-        // get the target object
-        _editedLoader = target as SVGUISpriteLoaderBehaviour;
-
-        if (_editedLoader != null)
+        void OnDestroy()
         {
-            GUI.enabled = !Application.isPlaying;
-            DrawInspector();
         }
-    }
 
-    void OnDestroy()
-    {
+        [NonSerialized]
+        private SVGUISpriteLoaderBehaviour _editedLoader = null;
     }
-
-    [NonSerialized]
-    private SVGUISpriteLoaderBehaviour _editedLoader = null;
 }

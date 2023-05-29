@@ -33,174 +33,174 @@
 ** For any information, please contact info@mazatech.com
 ** 
 ****************************************************************************/
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 #if UNITY_EDITOR
     using UnityEditor;
 #endif
 
-public enum GameCardType {
-    Undefined  =  -2,
-    BackSide   =  -1,
-    Panda      =   0,
-    Monkey     =   1,
-    Orangutan  =   2,
-    Panther    =   3,
-    Puma       =   4,
-    Leopard    =   5,
-    Lion       =   6,
-    Cougar     =   7,
-    Tiger      =   8,
-    Elephant   =   9,
-    Penguin    =  10,
-    Zebra      =  11,
-    Hen        =  12,
-    Rooster    =  13,
-    Pig        =  14,
-    Dog        =  15,
-    Rabbit     =  16,
-    Owl        =  17,
-    Sheep      =  18,
-    Cat        =  19,
-    Deer       =  20,
-    Donkey     =  21,
-    Cow        =  22,
-    Fox        =  23
-};
+namespace MemoryGameScene
+{
+    public enum GameCardType {
+        Undefined  =  -2,
+        BackSide   =  -1,
+        Panda      =   0,
+        Monkey     =   1,
+        Orangutan  =   2,
+        Panther    =   3,
+        Puma       =   4,
+        Leopard    =   5,
+        Lion       =   6,
+        Cougar     =   7,
+        Tiger      =   8,
+        Elephant   =   9,
+        Penguin    =  10,
+        Zebra      =  11,
+        Hen        =  12,
+        Rooster    =  13,
+        Pig        =  14,
+        Dog        =  15,
+        Rabbit     =  16,
+        Owl        =  17,
+        Sheep      =  18,
+        Cat        =  19,
+        Deer       =  20,
+        Donkey     =  21,
+        Cow        =  22,
+        Fox        =  23
+    };
 
-[ExecuteInEditMode]
-public class GameCardBehaviour : MonoBehaviour {
+    [ExecuteInEditMode]
+    public class GameCardBehaviour : MonoBehaviour {
 
-    public static string AnimalSpriteName(GameCardType animalType)
-    {
-        switch (animalType)
+        public static string AnimalSpriteName(GameCardType animalType)
         {
-            case GameCardType.BackSide:
-                return("animals_back");
-            case GameCardType.Panda:
-                return("animals_Panda");
-            case GameCardType.Monkey:
-                return("animals_Monkey");
-            case GameCardType.Orangutan:
-                return("animals_Orangutan");
-            case GameCardType.Panther:
-                return("animals_Panther");
-            case GameCardType.Puma:
-                return("animals_Puma");
-            case GameCardType.Leopard:
-                return("animals_Leopard");
-            case GameCardType.Lion:
-                return("animals_Lion");
-            case GameCardType.Cougar:
-                return("animals_Cougar");
-            case GameCardType.Tiger:
-                return("animals_Tiger");
-            case GameCardType.Elephant:
-                return("animals_Elephant");
-            case GameCardType.Penguin:
-                return("animals_Penguin");
-            case GameCardType.Zebra:
-                return("animals_Zebra");
-            case GameCardType.Hen:
-                return("animals_Hen");
-            case GameCardType.Rooster:
-                return("animals_Rooster");
-            case GameCardType.Pig:
-                return("animals_Pig");
-            case GameCardType.Dog:
-                return("animals_Dog");
-            case GameCardType.Rabbit:
-                return("animals_Rabbit");
-            case GameCardType.Owl:
-                return("animals_Owl");
-            case GameCardType.Sheep:
-                return("animals_Sheep");
-            case GameCardType.Cat:
-                return("animals_Cat");
-            case GameCardType.Deer:
-                return("animals_Deer");
-            case GameCardType.Donkey:
-                return("animals_Donkey");
-            case GameCardType.Cow:
-                return("animals_Cow");
-            case GameCardType.Fox:
-                return("animals_Fox");
-            default:
-                return("");
+            switch (animalType)
+            {
+                case GameCardType.BackSide:
+                    return("animals_back");
+                case GameCardType.Panda:
+                    return("animals_Panda");
+                case GameCardType.Monkey:
+                    return("animals_Monkey");
+                case GameCardType.Orangutan:
+                    return("animals_Orangutan");
+                case GameCardType.Panther:
+                    return("animals_Panther");
+                case GameCardType.Puma:
+                    return("animals_Puma");
+                case GameCardType.Leopard:
+                    return("animals_Leopard");
+                case GameCardType.Lion:
+                    return("animals_Lion");
+                case GameCardType.Cougar:
+                    return("animals_Cougar");
+                case GameCardType.Tiger:
+                    return("animals_Tiger");
+                case GameCardType.Elephant:
+                    return("animals_Elephant");
+                case GameCardType.Penguin:
+                    return("animals_Penguin");
+                case GameCardType.Zebra:
+                    return("animals_Zebra");
+                case GameCardType.Hen:
+                    return("animals_Hen");
+                case GameCardType.Rooster:
+                    return("animals_Rooster");
+                case GameCardType.Pig:
+                    return("animals_Pig");
+                case GameCardType.Dog:
+                    return("animals_Dog");
+                case GameCardType.Rabbit:
+                    return("animals_Rabbit");
+                case GameCardType.Owl:
+                    return("animals_Owl");
+                case GameCardType.Sheep:
+                    return("animals_Sheep");
+                case GameCardType.Cat:
+                    return("animals_Cat");
+                case GameCardType.Deer:
+                    return("animals_Deer");
+                case GameCardType.Donkey:
+                    return("animals_Donkey");
+                case GameCardType.Cow:
+                    return("animals_Cow");
+                case GameCardType.Fox:
+                    return("animals_Fox");
+                default:
+                    return("");
+            }
         }
-    }
 
-    // Number of total animal types
-    public static int AnimalsCount()
-    {
-
-        return (GameCardType.Fox - GameCardType.Panda) + 1;
-    }
-
-    // Select a random animal
-    public static GameCardType RandomAnimal()
-    {
-        int v = (int)(UnityEngine.Random.value * (float)AnimalsCount()) + (int)GameCardType.Panda;
-        return (GameCardType)v;
-    }
-
-    // Get the next animal in the list
-    public static GameCardType NextAnimal(GameCardType current)
-    {
-        int next = (((int)current + 1) % AnimalsCount()) + (int)GameCardType.Panda;
-        return (GameCardType)next;
-    }
-
-    void OnMouseDown()
-    {
-        if (Game != null)
+        // Number of total animal types
+        public static int AnimalsCount()
         {
-            Game.SelectCard(this);
-        }
-    }
 
-    // Use this for initialization
-    void Start()
-    {
-    }
+            return (GameCardType.Fox - GameCardType.Panda) + 1;
+        }
+
+        // Select a random animal
+        public static GameCardType RandomAnimal()
+        {
+            int v = (int)(UnityEngine.Random.value * (float)AnimalsCount()) + (int)GameCardType.Panda;
+            return (GameCardType)v;
+        }
+
+        // Get the next animal in the list
+        public static GameCardType NextAnimal(GameCardType current)
+        {
+            int next = (((int)current + 1) % AnimalsCount()) + (int)GameCardType.Panda;
+            return (GameCardType)next;
+        }
+
+        void OnMouseDown()
+        {
+            if (Game != null)
+            {
+                Game.SelectCard(this);
+            }
+        }
+
+        // Use this for initialization
+        void Start()
+        {
+        }
     
-    // Update is called once per frame
-    void Update()
-    {
-    }
-
-#if UNITY_EDITOR
-    private bool RequirementsCheck()
-    {
-        SpriteRenderer renderer = gameObject.GetComponent<SpriteRenderer>();
-        if (renderer == null)
+        // Update is called once per frame
+        void Update()
         {
-            EditorUtility.DisplayDialog("Incompatible game object",
-                                        string.Format("In order to work properly, the component {0} requires the presence of a SpriteRenderer component", GetType()),
-                                        "Ok");
-            return false;
         }
-        return true;
-    }
+
+    #if UNITY_EDITOR
+        private bool RequirementsCheck()
+        {
+            SpriteRenderer renderer = gameObject.GetComponent<SpriteRenderer>();
+            if (renderer == null)
+            {
+                EditorUtility.DisplayDialog("Incompatible game object",
+                                            string.Format("In order to work properly, the component {0} requires the presence of a SpriteRenderer component", GetType()),
+                                            "Ok");
+                return false;
+            }
+            return true;
+        }
     
-    // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
-    // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
-    void Reset()
-    {
-        if (RequirementsCheck())
+        // Reset is called when the user hits the Reset button in the Inspector's context menu or when adding the component the first time.
+        // This function is only called in editor mode. Reset is most commonly used to give good default values in the inspector.
+        void Reset()
         {
-            Active = true;
-            BackSide = true;
-            AnimalType = GameCardType.Undefined;
-            Game = null;
+            if (RequirementsCheck())
+            {
+                Active = true;
+                BackSide = true;
+                AnimalType = GameCardType.Undefined;
+                Game = null;
+            }
         }
-    }
-#endif
+    #endif
 
-    public bool Active;
-    public bool BackSide;
-    public GameCardType AnimalType;
-    public GameBehaviour Game;
+        public bool Active;
+        public bool BackSide;
+        public GameCardType AnimalType;
+        public GameBehaviour Game;
+    }
 }
