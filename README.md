@@ -34,4 +34,4 @@ The public AmanithSVG SDK does not include:
 
 AmanithSVG exists in two different versions: Lite and Full. **Both support the same platforms/architectures and the same API**. The difference between the two lies in the license, and in some limitations of the Lite version compared to the Full. Specifically, the Lite version does not support the following SVG elements: [\<linearGradient\>](https://www.w3.org/TR/SVG11/pservers.html#LinearGradients), [\<radialGradient\>](https://www.w3.org/TR/SVG11/pservers.html#RadialGradients), [\<pattern\>](https://www.w3.org/TR/SVG11/pservers.html#Patterns), [\<image\>](https://www.w3.org/TR/SVG11/struct.html#ImageElement), [\<mask\>](https://www.w3.org/TR/SVG11/masking.html#Masking), [\<filter\>](https://www.w3.org/TR/SVG11/filters.html).
 
-More information on the [relative AmanithSVG project page](https://www.amanithsvg.com/docs/desc/004-lite-vs-full.html).
+More information on the [relative AmanithSVG project page](https://www.amanithsvg.com/docs/desc/004-licensing.html).
